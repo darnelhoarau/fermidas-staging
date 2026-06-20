@@ -1,0 +1,13 @@
+{
+  "crons": [
+    {
+      "path": "/api/jobs/generate-compliance-watch",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/jobs/renew-subscriptions",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
+

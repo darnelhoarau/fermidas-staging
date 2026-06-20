@@ -1,0 +1,218 @@
+@import 'tailwindcss';
+
+/* -------------------------------------------------------
+   Fermidas Tailwind v4 theme (tokens + utilities)
+   - No inline styles in components; use these tokens/utilities.
+   - Fonts will come from next/font -> set CSS vars in layout.tsx:
+       Inter -> --font-inter
+       Manrope -> --font-manrope
+-------------------------------------------------------- */
+
+:root {
+  --background: #141a1b; /* bg-brand - consistent dark background */
+  --foreground: #f7faf9; /* light text for dark background */
+}
+
+/* ---------- THEME TOKENS ---------- */
+@theme inline {
+  /* Base background/text bindings (used by bg-background / text-foreground) */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* Brand palette */
+  --color-brand: #141a1b;
+  --color-brand-foreground: #f7faf9;
+
+  /* Leaf scale (teal) */
+  --color-leaf-50: #edf3f3;
+  --color-leaf-100: #dce7e6;
+  --color-leaf-200: #bed0cf;
+  --color-leaf-300: #9fb8b8;
+  --color-leaf-400: #88a7a5;
+  --color-leaf-500: #749694;
+  --color-leaf-600: #5f7b7b;
+  --color-leaf-700: #4a6262;
+  --color-leaf-800: #354848;
+  --color-leaf-900: #222f30;
+
+  /* Accents */
+  --color-gold: #c9a227;
+  --color-sand: #ece8e1;
+  --color-ink: #0c1011;
+  --color-slate: #1e2628;
+  --color-mint: #e8f2f1;
+  --color-error: #b43e3e;
+  --color-warn: #c27a00;
+  --color-success: #2e7d6d;
+
+  /* Fonts (wired from next/font in layout.tsx) */
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-manrope);
+
+  /* Radius + shadows */
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.25rem;
+  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* ---------- BASE ---------- */
+html {
+  scroll-behavior: smooth;
+}
+body {
+  @apply bg-background text-foreground font-sans antialiased;
+}
+
+/* ---------- UTILITIES (class-based, no inline styles) ---------- */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-semibold transition-colors duration-200;
+}
+.btn-primary {
+  @apply text-brand-foreground bg-gradient-to-r from-leaf-600 to-brand hover:from-leaf-500 hover:to-brand/90;
+}
+.btn-ghost {
+  @apply text-brand hover:bg-sand/60;
+}
+.card {
+  /* Use tokenized shadow to avoid inline styles */
+  box-shadow: var(--shadow-card);
+  @apply rounded-2xl ring-1 ring-black/5 bg-white;
+}
+.section {
+  @apply py-24 md:py-28;
+}
+.section.no-top {
+  @apply pt-0 pb-24 md:pb-28;
+}
+.container {
+  @apply mx-auto max-w-7xl px-6 md:px-8;
+}
+.kicker {
+  @apply text-sm font-medium tracking-wide text-leaf-700 uppercase;
+}
+
+.course-hero-lava {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 22% 16%,
+      rgba(95, 123, 123, 0.18),
+      transparent 34%
+    ),
+    linear-gradient(135deg, #080b0c 0%, #111718 42%, #0b0f10 100%);
+}
+
+.course-hero-lava::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(8, 11, 12, 0.1), rgba(8, 11, 12, 0.5)),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(8, 11, 12, 0.15),
+      rgba(8, 11, 12, 0.7)
+    );
+}
+
+.course-hero-lava__blob {
+  position: absolute;
+  display: block;
+  border-radius: 45%;
+  filter: blur(34px);
+  will-change: transform, border-radius;
+}
+
+.course-hero-lava__blob-a {
+  width: 92%;
+  height: 150%;
+  left: -26%;
+  top: -64%;
+  background: #222d2f;
+  opacity: 0.82;
+  animation: course-lava-blob-a 28s ease-in-out infinite;
+}
+
+.course-hero-lava__blob-b {
+  width: 78%;
+  height: 138%;
+  right: -30%;
+  top: -38%;
+  background: #313d3f;
+  opacity: 0.58;
+  animation: course-lava-blob-b 36s ease-in-out infinite;
+}
+
+.course-hero-lava__blob-c {
+  width: 74%;
+  height: 122%;
+  left: 30%;
+  bottom: -72%;
+  background: #151d1f;
+  opacity: 0.92;
+  animation: course-lava-blob-c 42s ease-in-out infinite;
+}
+
+@keyframes course-lava-blob-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    border-radius: 45% 55% 50% 50%;
+  }
+  33% {
+    transform: translate3d(15%, 20%, 0) rotate(16deg) scale(1.08);
+    border-radius: 58% 42% 64% 36%;
+  }
+  66% {
+    transform: translate3d(34%, 8%, 0) rotate(-10deg) scale(0.96);
+    border-radius: 38% 62% 44% 56%;
+  }
+}
+
+@keyframes course-lava-blob-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    border-radius: 48% 52% 42% 58%;
+  }
+  40% {
+    transform: translate3d(-24%, 24%, 0) rotate(-18deg) scale(1.12);
+    border-radius: 62% 38% 56% 44%;
+  }
+  72% {
+    transform: translate3d(-42%, 4%, 0) rotate(9deg) scale(0.98);
+    border-radius: 40% 60% 66% 34%;
+  }
+}
+
+@keyframes course-lava-blob-c {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    border-radius: 55% 45% 50% 50%;
+  }
+  45% {
+    transform: translate3d(-18%, -22%, 0) rotate(12deg) scale(1.05);
+    border-radius: 42% 58% 62% 38%;
+  }
+  78% {
+    transform: translate3d(12%, -30%, 0) rotate(-14deg) scale(0.94);
+    border-radius: 64% 36% 44% 56%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-hero-lava__blob {
+    animation: none;
+  }
+}
+
+@media print {
+  footer {
+    display: none !important;
+  }
+}
