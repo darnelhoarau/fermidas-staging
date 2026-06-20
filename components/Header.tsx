@@ -51,7 +51,7 @@ export function Header() {
             {session ? (
               <UserMenu />
             ) : (
-              <Button href='/contact' size='sm'>
+              <Button href='/digital' size='sm'>
                 Get Started
               </Button>
             )}
@@ -115,7 +115,7 @@ export function Header() {
                     onMobileMenuToggle={() => setMobileMenuOpen(false)}
                   />
                 ) : (
-                  <Button href='/contact' size='sm' className='w-full'>
+                  <Button href='/digital' size='sm' className='w-full'>
                     Get Started
                   </Button>
                 )}
