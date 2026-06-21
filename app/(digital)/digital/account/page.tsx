@@ -105,6 +105,19 @@ export default async function AccountPage() {
                       enrollment.completed_lessons || 0,
                       enrollment.total_lessons || 0,
                     );
+                    const expiryDate = enrollment.access_expires_at
+                      ? new Date(enrollment.access_expires_at)
+                      : null;
+                    const now = new Date();
+                    const isExpired = expiryDate ? expiryDate <= now : false;
+                    const daysRemaining = expiryDate
+                      ? Math.ceil(
+                          (expiryDate.getTime() - now.getTime()) /
+                            (1000 * 60 * 60 * 24),
+                        )
+                      : null;
+                    const isExpiringSoon =
+                      !isExpired && daysRemaining !== null && daysRemaining <= 7;
                     return (
                       <div key={enrollment.id} className='card p-5'>
                         <div className='mb-4 flex gap-4'>
@@ -127,6 +140,23 @@ export default async function AccountPage() {
                             </p>
                           </div>
                         </div>
+                        {expiryDate && (
+                          <div
+                            className={`mb-3 rounded-lg px-3 py-2 text-sm font-medium ${
+                              isExpired
+                                ? 'bg-error/10 text-error'
+                                : isExpiringSoon
+                                  ? 'bg-warn/10 text-warn'
+                                  : 'bg-leaf-50 text-leaf-700'
+                            }`}
+                          >
+                            {isExpired
+                              ? 'Access expired'
+                              : isExpiringSoon
+                                ? `Expires in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}`
+                                : `Access expires ${expiryDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+                          </div>
+                        )}
                         <CourseProgressBar
                           percent={percent}
                           label={`${enrollment.completed_lessons || 0} of ${

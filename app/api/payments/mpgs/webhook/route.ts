@@ -295,7 +295,8 @@ async function handleCoursePurchase(params: HandleCoursePurchaseParams) {
 
   if (existing) {
     if (existing.status === 'PAID') {
-      await db.createCourseEnrollment(userId, courseId, existing.id);
+      const accessExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      await db.createCourseEnrollment(userId, courseId, existing.id, accessExpiresAt);
       console.log('Course purchase already PAID (idempotent)');
       return;
     }
@@ -305,10 +306,12 @@ async function handleCoursePurchase(params: HandleCoursePurchaseParams) {
         orderId,
         'PAID',
       );
+      const accessExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       await db.createCourseEnrollment(
         userId,
         courseId,
         updatedPurchase?.id || existing.id,
+        accessExpiresAt,
       );
       await db.createAuditLog({
         actorUserId: userId,
@@ -349,7 +352,8 @@ async function handleCoursePurchase(params: HandleCoursePurchaseParams) {
   }
 
   if (isSuccess) {
-    await db.createCourseEnrollment(userId, courseId, purchase.id);
+    const accessExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await db.createCourseEnrollment(userId, courseId, purchase.id, accessExpiresAt);
   }
 
   await db.createAuditLog({

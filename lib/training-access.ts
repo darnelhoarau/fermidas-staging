@@ -17,7 +17,14 @@ export async function canAccessCourse(
   if (!user?.id) return false;
 
   const enrollment = await db.findCourseEnrollment(user.id, courseId);
-  if (enrollment) return true;
+  if (enrollment) {
+    if (
+      !enrollment.access_expires_at ||
+      new Date(enrollment.access_expires_at) > new Date()
+    ) {
+      return true;
+    }
+  }
 
   const subscription = await db.findActiveTrainingSubscription(user.id);
   if (subscription) return true;

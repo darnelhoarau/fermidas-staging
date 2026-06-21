@@ -2323,13 +2323,15 @@ export async function createCourseEnrollment(
   userId: string,
   courseId: string,
   purchaseId?: string | null,
+  accessExpiresAt?: Date | null,
 ) {
   const id = generateId('enroll');
   const query = `
-    INSERT INTO course_enrollments (id, user_id, course_id, purchase_id, last_accessed_at)
-    VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+    INSERT INTO course_enrollments (id, user_id, course_id, purchase_id, access_expires_at, last_accessed_at)
+    VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
     ON CONFLICT (user_id, course_id) DO UPDATE SET
       purchase_id = COALESCE(course_enrollments.purchase_id, EXCLUDED.purchase_id),
+      access_expires_at = COALESCE(EXCLUDED.access_expires_at, course_enrollments.access_expires_at),
       last_accessed_at = CURRENT_TIMESTAMP
     RETURNING *
   `;
@@ -2339,6 +2341,7 @@ export async function createCourseEnrollment(
       userId,
       courseId,
       purchaseId || null,
+      accessExpiresAt || null,
     ]);
     return result.rows[0];
   } catch (error) {
