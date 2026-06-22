@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/mock-mpgs
+/mock-admin
+/admin-dashboard
 
 # next.js
 /.next/
@@ -39,8 +42,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-migrations/001_create_contacts_table.sql
-migrations
+
+# migrations — only track .sql files needed for production schema
+/migrations/*
+
 .cursor
 
 # Snyk Security Extension - AI Rules (auto-generated)
@@ -50,3 +55,10 @@ migrations
 *.sql
 *.md
 !README.md
+
+# migrations — track .sql migration files (override *.sql exclusion above)
+!/migrations/*.sql
+
+# Local test/utility scripts — not for production
+/scripts/backfill-enrollment-expiry.ts
+/scripts/seed-test-course.ts

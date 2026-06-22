@@ -53,8 +53,24 @@ export async function POST(request: NextRequest) {
 
     const { order, transaction } = validatedPayload;
 
-    // Retrieve full order details from MPGS
-    const fullOrder = await retrieveOrder(order.id);
+    // Retrieve full order details from MPGS (non-fatal: fall back to webhook payload)
+    let fullOrder: Record<string, unknown> = {};
+    try {
+      fullOrder = await retrieveOrder(order.id);
+    } catch (retrieveErr) {
+      console.warn(
+        'MPGS order retrieval failed — using webhook payload:',
+        retrieveErr instanceof Error ? retrieveErr.message : retrieveErr,
+      );
+      // Use the webhook payload as the order source (amount, currency, etc.)
+      fullOrder = {
+        order: { id: order.id },
+        status: order.status,
+        amount: order.amount,
+        currency: order.currency,
+        transaction: transaction ? [transaction] : [],
+      };
+    }
 
     // Look up checkout context from our audit log (keyed by orderId)
     const context = await db.findCheckoutContext(order.id);

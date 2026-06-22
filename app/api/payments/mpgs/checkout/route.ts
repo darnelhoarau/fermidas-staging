@@ -93,14 +93,18 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const [existingPurchase, existingEnrollment, existingSubscription] =
-          await Promise.all([
-            db.findCoursePurchase(session.user.id, checkoutCourseId),
-            db.findCourseEnrollment(session.user.id, checkoutCourseId),
-            db.findActiveSubscription(session.user.id, plan.product_id),
-          ]);
+        const [existingEnrollment, existingSubscription] = await Promise.all([
+          db.findCourseEnrollment(session.user.id, checkoutCourseId),
+          db.findActiveSubscription(session.user.id, plan.product_id),
+        ]);
 
-        if (existingPurchase || existingEnrollment || existingSubscription) {
+        // Allow re-purchase if enrollment exists but access has expired
+        const hasValidAccess = existingEnrollment && (
+          !existingEnrollment.access_expires_at ||
+          new Date(existingEnrollment.access_expires_at) > new Date()
+        );
+
+        if (hasValidAccess || existingSubscription) {
           return NextResponse.json(
             { error: 'You already have access to this course' },
             { status: 400 },
@@ -149,28 +153,33 @@ export async function POST(request: NextRequest) {
 
     // Store full checkout context in audit log BEFORE creating MPGS session.
     // MPGS metadata is not used - the webhook retrieves context via findCheckoutContext(orderId).
-    await db.createAuditLog({
-      actorUserId: session.user.id,
-      action: 'checkout.initiated',
-      metaJson: JSON.stringify({
-        orderId,
-        userId: session.user.id,
-        planId: plan.id,
-        productId: plan.product_id,
-        interval: plan.interval,
-        amount: plan.price_minor,
-        currency: plan.currency,
-        ...(checkoutReportDate && {
-          reportDate: checkoutReportDate,
+    // Non-blocking: audit log failure must not prevent checkout.
+    try {
+      await db.createAuditLog({
+        actorUserId: session.user.id,
+        action: 'checkout.initiated',
+        metaJson: JSON.stringify({
+          orderId,
+          userId: session.user.id,
+          planId: plan.id,
+          productId: plan.product_id,
+          interval: plan.interval,
+          amount: plan.price_minor,
+          currency: plan.currency,
+          ...(checkoutReportDate && {
+            reportDate: checkoutReportDate,
+          }),
+          ...(checkoutCourseId && {
+            courseId: checkoutCourseId,
+          }),
+          termsVersion: validatedData.termsVersion,
+          termsIp: ip,
+          termsAcceptedAt: new Date().toISOString(),
         }),
-        ...(checkoutCourseId && {
-          courseId: checkoutCourseId,
-        }),
-        termsVersion: validatedData.termsVersion,
-        termsIp: ip,
-        termsAcceptedAt: new Date().toISOString(),
-      }),
-    });
+      });
+    } catch (auditErr) {
+      console.warn('Audit log failed (non-blocking):', auditErr);
+    }
 
     // Create checkout session with MPGS
     const checkoutSession = await createCheckoutSession({
@@ -186,6 +195,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Checkout error:', error);
+    console.error('Checkout error message:', error instanceof Error ? error.message : String(error));
+    console.error('Checkout error stack:', error instanceof Error ? error.stack : 'no stack');
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -194,8 +205,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const detail = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', detail },
       { status: 500 },
     );
   }

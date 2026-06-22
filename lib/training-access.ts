@@ -16,8 +16,14 @@ export async function canAccessCourse(
   if (!isPaymentEnabled()) return true;
   if (!user?.id) return false;
 
+  // Active subscription grants access to all courses regardless of expiry
+  const subscription = await db.findActiveTrainingSubscription(user.id);
+  if (subscription) return true;
+
   const enrollment = await db.findCourseEnrollment(user.id, courseId);
   if (enrollment) {
+    // Enrollment with no expiry (NULL) = unlimited access
+    // Enrollment with future expiry = valid access
     if (
       !enrollment.access_expires_at ||
       new Date(enrollment.access_expires_at) > new Date()
@@ -26,11 +32,8 @@ export async function canAccessCourse(
     }
   }
 
-  const subscription = await db.findActiveTrainingSubscription(user.id);
-  if (subscription) return true;
-
-  const purchase = await db.findCoursePurchase(user.id, courseId);
-  return !!purchase;
+  // No valid enrollment → no access (admin must re-enroll or user must repurchase)
+  return false;
 }
 
 export async function canAccessLesson(

@@ -1514,6 +1514,16 @@ export async function createAuditLog(data: {
     ]);
     return result.rows[0];
   } catch (error) {
+    if ((error as { code?: string }).code === '23503' && data.actorUserId) {
+      console.warn('Audit log FK violation — retrying without actor_user_id');
+      const fallback = await pool.query(query, [
+        id,
+        null,
+        data.action,
+        data.metaJson,
+      ]);
+      return fallback.rows[0];
+    }
     console.error('Error creating audit log:', error);
     throw error;
   }
@@ -2330,7 +2340,7 @@ export async function createCourseEnrollment(
     INSERT INTO course_enrollments (id, user_id, course_id, purchase_id, access_expires_at, last_accessed_at)
     VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
     ON CONFLICT (user_id, course_id) DO UPDATE SET
-      purchase_id = COALESCE(course_enrollments.purchase_id, EXCLUDED.purchase_id),
+      purchase_id = COALESCE(EXCLUDED.purchase_id, course_enrollments.purchase_id),
       access_expires_at = COALESCE(EXCLUDED.access_expires_at, course_enrollments.access_expires_at),
       last_accessed_at = CURRENT_TIMESTAMP
     RETURNING *
