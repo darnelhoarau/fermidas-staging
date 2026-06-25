@@ -2705,6 +2705,80 @@ export async function findCourseEnrollments(courseId?: string) {
   }
 }
 
+// ── Admin: User Management ──
+
+export async function listUsers() {
+  const query = `
+    SELECT u.id, u.email, u.name, u.role, u.created_at,
+      (SELECT COUNT(*) FROM course_enrollments ce WHERE ce.user_id = u.id)::integer as enrollment_count,
+      (SELECT COUNT(*) FROM one_off_purchases op WHERE op.user_id = u.id)::integer as purchase_count
+    FROM users u
+    ORDER BY u.created_at DESC
+  `;
+  try {
+    const result = await pool.query(query);
+    return result.rows;
+  } catch (error) {
+    console.error('Error listing users:', error);
+    throw error;
+  }
+}
+
+export async function updateUser(
+  userId: string,
+  data: { name?: string; role?: 'ADMIN' | 'MEMBER' },
+) {
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  let idx = 1;
+
+  if (data.name !== undefined) {
+    sets.push(`name = $${idx++}`);
+    params.push(data.name);
+  }
+  if (data.role !== undefined) {
+    sets.push(`role = $${idx++}`);
+    params.push(data.role);
+  }
+
+  if (sets.length === 0) return findUserById(userId);
+
+  const query = `
+    UPDATE users SET ${sets.join(', ')}, updated_at = NOW()
+    WHERE id = $${idx}
+    RETURNING *
+  `;
+  params.push(userId);
+
+  try {
+    const result = await pool.query(query, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error updating user:', error);
+    throw error;
+  }
+}
+
+export async function deleteUserWithData(userId: string) {
+  const tables = [
+    'lesson_progress',
+    'course_enrollments',
+    'one_off_purchases',
+    'subscriptions',
+    'audit_logs',
+  ];
+  try {
+    for (const table of tables) {
+      const col = table === 'audit_logs' ? 'actor_user_id' : 'user_id';
+      await pool.query(`DELETE FROM ${table} WHERE ${col} = $1`, [userId]);
+    }
+    await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    throw error;
+  }
+}
+
 // Close the pool when the application shuts down
 process.on('SIGINT', () => {
   pool.end();

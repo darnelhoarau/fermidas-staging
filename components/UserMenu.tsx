@@ -104,6 +104,18 @@ export function UserMenu({ isMobile = false }: UserMenuProps) {
 
   const adminMenuItems = [
     {
+      label: 'System Admin',
+      href: '/digital/admin/system',
+      icon: Shield01Icon,
+      description: 'Manage users and roles',
+    },
+    {
+      label: 'Enrollments',
+      href: '/digital/admin/enrollments',
+      icon: Shield01Icon,
+      description: 'Manage course enrollments',
+    },
+    {
       label: 'Admin Dashboard',
       href: '/digital/admin/compliance-watch',
       icon: Shield01Icon,
