@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import * as db from '@/lib/db';
 import { retrieveOrder } from '@/lib/mpgs';
 
@@ -96,16 +97,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Payment confirmation is disabled' }, { status: 403 });
   }
 
-  const { orderId } = await request.json().catch(() => ({}));
-
-  if (!orderId) {
-    return NextResponse.json({ error: 'orderId required' }, { status: 400 });
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { orderId: bodyOrderId } = await request.json().catch(() => ({}));
+  let orderId = bodyOrderId;
+
   try {
+    if (!orderId) {
+      const latest = await db.findLatestCheckoutForUser(session.user.id);
+      if (!latest?.orderId) {
+        return NextResponse.json(
+          { error: 'No pending checkout found. Payment may have been processed already.' },
+          { status: 404 },
+        );
+      }
+      orderId = latest.orderId;
+    }
+
     const context = await db.findCheckoutContext(orderId);
     if (!context) {
       return NextResponse.json({ error: 'Checkout context not found' }, { status: 404 });
+    }
+
+    if (context.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Checkout does not belong to current user' }, { status: 403 });
     }
 
     const fullOrder = await retrieveOrder(orderId);
@@ -114,7 +132,11 @@ export async function POST(request: NextRequest) {
       fullOrder.status === 'AUTHORIZED' ||
       fullOrder.transaction?.[0]?.result === 'SUCCESS';
 
-    if (context.interval === 'ONE_OFF' && context.courseId && isSuccess) {
+    if (!isSuccess) {
+      return NextResponse.json({ error: 'Payment was not successful' }, { status: 400 });
+    }
+
+    if (context.interval === 'ONE_OFF' && context.courseId) {
       const existing = await db.findOneOffPurchaseByOrderId(orderId);
       let purchaseId: string;
 
@@ -129,7 +151,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
         }
         const purchase = await db.createOneOffPurchase({
-          userId: context.userId,
+          userId: session.user.id,
           productId: context.productId,
           planId: context.planId,
           courseId: context.courseId,
@@ -143,7 +165,9 @@ export async function POST(request: NextRequest) {
       }
 
       const accessExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      await db.createCourseEnrollment(context.userId, context.courseId, purchaseId, accessExpiresAt);
+      await db.createCourseEnrollment(session.user.id, context.courseId, purchaseId, accessExpiresAt);
+    } else {
+      return NextResponse.json({ error: 'Only course purchases are supported' }, { status: 400 });
     }
 
     return NextResponse.json({ success: true });

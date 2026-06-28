@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
-type Status = 'idle' | 'processing' | 'success' | 'exists' | 'error';
+type Status = 'idle' | 'processing' | 'success' | 'already_enrolled' | 'error';
 
 export function PaymentSuccessHandler() {
   const searchParams = useSearchParams();
@@ -11,15 +11,13 @@ export function PaymentSuccessHandler() {
   const [status, setStatus] = useState<Status>('idle');
   const [message, setMessage] = useState('');
 
-  const processPayment = useCallback(async (orderId: string) => {
+  const processPayment = useCallback(async () => {
     setStatus('processing');
     setMessage('Enrolling you now...');
 
     try {
       const res = await fetch('/api/payments/mpgs/confirm', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId }),
       });
 
       const data = await res.json();
@@ -30,14 +28,14 @@ export function PaymentSuccessHandler() {
       } else if (res.status === 403) {
         setStatus('error');
         setMessage('Payment confirmation is currently disabled. Contact support.');
-        return;
-      } else if (res.status === 409 || data.error?.includes('already')) {
-        setStatus('exists');
-        setMessage('You already have access to this course.');
+        return; // don't clean URL — retry on refresh
+      } else if (res.status === 404) {
+        setStatus('already_enrolled');
+        setMessage(data.error || 'Already enrolled — you have access.');
       } else {
         setStatus('error');
         setMessage(data.error || 'Something went wrong. Refresh the page to try again.');
-        return;
+        return; // don't clean URL — retry on refresh
       }
 
       // Clean URL params so refresh doesn't re-process
@@ -53,28 +51,24 @@ export function PaymentSuccessHandler() {
   }, [router]);
 
   useEffect(() => {
-    const payment = searchParams.get('payment');
-    const result = searchParams.get('result');
-    const orderId = searchParams.get('order.id');
-
-    if (payment === 'success' && orderId && result === 'success') {
-      processPayment(orderId);
+    if (searchParams.get('payment') === 'success' && status === 'idle') {
+      processPayment();
     }
-  }, [searchParams, processPayment]);
+  }, [searchParams, processPayment, status]);
 
   if (status === 'idle') return null;
 
   const colors = {
     processing: 'border-leaf-200 bg-leaf-50 text-leaf-800',
     success: 'border-green-300 bg-green-50 text-green-800',
-    exists: 'border-amber-300 bg-amber-50 text-amber-800',
+    already_enrolled: 'border-amber-300 bg-amber-50 text-amber-800',
     error: 'border-red-300 bg-red-50 text-red-800',
   } as const;
 
   const icons = {
     processing: '⏳',
     success: '✅',
-    exists: 'ℹ️',
+    already_enrolled: 'ℹ️',
     error: '❌',
   };
 

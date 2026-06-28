@@ -1635,6 +1635,25 @@ export async function findCheckoutContext(orderId: string): Promise<{
   }
 }
 
+export async function findLatestCheckoutForUser(userId: string) {
+  const query = `
+    SELECT meta_json
+    FROM audit_logs
+    WHERE action = 'checkout.initiated'
+      AND meta_json::jsonb->>'userId' = $1
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+  try {
+    const result = await pool.query(query, [userId]);
+    if (!result.rows[0]) return null;
+    return JSON.parse(result.rows[0].meta_json);
+  } catch (error) {
+    console.error('Error finding latest checkout for user:', error);
+    return null;
+  }
+}
+
 // ============================================
 // TRAINING COURSES
 // ============================================
