@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { EnrollmentManager } from '../enrollments/EnrollmentManager';
 
 interface User {
   id: string;
@@ -31,6 +32,12 @@ interface Feature {
   enabled: boolean;
 }
 
+const REDIRECT_OPTIONS = [
+  { label: 'Account page', value: '/digital/account' },
+  { label: 'Training page', value: '/digital/training' },
+  { label: 'Custom URL', value: '__custom__' },
+];
+
 export function SystemAdminClient({ users }: { users: User[] }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -39,6 +46,15 @@ export function SystemAdminClient({ users }: { users: User[] }) {
   const [loadingOrphaned, setLoadingOrphaned] = useState(true);
   const [repairing, setRepairing] = useState<string | null>(null);
   const [features, setFeatures] = useState<Feature[]>([]);
+
+  // Payment settings
+  const [redirectUrl, setRedirectUrl] = useState('/digital/account');
+  const [redirectOption, setRedirectOption] = useState('/digital/account');
+  const [customUrl, setCustomUrl] = useState('');
+  const [savingRedirect, setSavingRedirect] = useState(false);
+
+  // Enrollment management expand
+  const [showEnrollments, setShowEnrollments] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin/purchases')
@@ -52,6 +68,23 @@ export function SystemAdminClient({ users }: { users: User[] }) {
     fetch('/api/admin/features')
       .then(r => r.json())
       .then(d => setFeatures(d.features || []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then(r => r.json())
+      .then(d => {
+        const val = d.settings?.payment_success_url || '/digital/account';
+        setRedirectUrl(val);
+        const found = REDIRECT_OPTIONS.find(o => o.value === val);
+        if (found) {
+          setRedirectOption(val);
+        } else {
+          setRedirectOption('__custom__');
+          setCustomUrl(val);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -100,7 +133,6 @@ export function SystemAdminClient({ users }: { users: User[] }) {
 
   async function toggleFeature(feature: string, current: boolean) {
     const next = !current;
-    // optimistically update
     setFeatures(prev => prev.map(f => f.key === feature ? { ...f, enabled: next } : f));
     try {
       const res = await fetch('/api/admin/features', {
@@ -114,6 +146,25 @@ export function SystemAdminClient({ users }: { users: User[] }) {
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Toggle failed');
+    }
+  }
+
+  async function handleSaveRedirect() {
+    setSavingRedirect(true);
+    const url = redirectOption === '__custom__' ? customUrl : redirectOption;
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'payment_success_url', value: url }),
+      });
+      if (!res.ok) throw new Error('Save failed');
+      setRedirectUrl(url);
+      alert('Saved!');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSavingRedirect(false);
     }
   }
 
@@ -189,6 +240,53 @@ export function SystemAdminClient({ users }: { users: User[] }) {
         </div>
       </div>
 
+      <div className='card'>
+        <h2 className='mb-3 text-lg font-bold text-brand'>Payment Settings</h2>
+        <p className='mb-4 text-sm text-leaf-600'>
+          Where to redirect users after successful payment.
+        </p>
+        <div className='flex flex-wrap items-end gap-4'>
+          <div className='min-w-0 flex-1'>
+            <label className='mb-1 block text-sm font-semibold text-leaf-700'>Redirect to</label>
+            <select
+              value={redirectOption}
+              onChange={e => setRedirectOption(e.target.value)}
+              className='w-full rounded-lg border border-leaf-200 p-3 text-sm'
+            >
+              {REDIRECT_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          {redirectOption === '__custom__' && (
+            <div className='min-w-0 flex-1'>
+              <label className='mb-1 block text-sm font-semibold text-leaf-700'>Custom URL path</label>
+              <input
+                type='text'
+                value={customUrl}
+                onChange={e => setCustomUrl(e.target.value)}
+                placeholder='/digital/training'
+                className='w-full rounded-lg border border-leaf-200 p-3 text-sm'
+              />
+            </div>
+          )}
+          <div>
+            <button
+              onClick={handleSaveRedirect}
+              disabled={savingRedirect}
+              className='btn btn-primary px-4 py-3 text-sm'
+            >
+              {savingRedirect ? '...' : 'Save'}
+            </button>
+          </div>
+        </div>
+        {redirectUrl && (
+          <p className='mt-3 text-xs text-leaf-500'>
+            Currently: <code className='rounded bg-leaf-50 px-1 py-0.5 text-leaf-700'>{redirectUrl}</code>
+          </p>
+        )}
+      </div>
+
       <div className='card overflow-hidden'>
         <table className='w-full text-left'>
           <thead>
@@ -250,6 +348,26 @@ export function SystemAdminClient({ users }: { users: User[] }) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className='card'>
+        <button
+          onClick={() => setShowEnrollments(!showEnrollments)}
+          className='flex w-full items-center justify-between'
+        >
+          <h2 className='text-lg font-bold text-brand'>Enrollment Management</h2>
+          <svg
+            className={`h-5 w-5 text-leaf-500 transition-transform ${showEnrollments ? 'rotate-180' : ''}`}
+            fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={2}
+          >
+            <path strokeLinecap='round' strokeLinejoin='round' d='M19 9l-7 7-7-7' />
+          </svg>
+        </button>
+        {showEnrollments && (
+          <div className='mt-4 border-t border-leaf-100 pt-4'>
+            <EnrollmentManager embedded />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ interface Course {
   slug: string;
 }
 
-export function EnrollmentManager() {
+export function EnrollmentManager({ embedded }: { embedded?: boolean }) {
   const router = useRouter();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -92,9 +92,13 @@ export function EnrollmentManager() {
   const tabs = ['all', 'active', 'expired', 'unlimited'];
 
   return (
-    <div className='space-y-6'>
+    <div className={embedded ? '' : 'space-y-6'}>
       <div className='flex items-center justify-between'>
-        <h1 className='text-2xl font-bold text-brand'>Enrollments</h1>
+        {embedded ? (
+          <h2 className='text-lg font-bold text-brand'>Enrollments</h2>
+        ) : (
+          <h1 className='text-2xl font-bold text-brand'>Enrollments</h1>
+        )}
         <button onClick={() => setShowForm(!showForm)} className='btn btn-primary px-4 py-2 text-sm'>
           + Enroll User
         </button>

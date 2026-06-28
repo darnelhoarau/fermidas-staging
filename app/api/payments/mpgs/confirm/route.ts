@@ -170,7 +170,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only course purchases are supported' }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true });
+    // Read configured redirect URL from settings
+    const redirectSetting = await db.getSetting('payment_success_url');
+    let redirectUrl = '/digital/account';
+    if (redirectSetting?.value_json) {
+      try {
+        const parsed = JSON.parse(redirectSetting.value_json);
+        if (typeof parsed === 'string' && parsed) {
+          redirectUrl = parsed;
+        }
+      } catch { /* ignore invalid JSON */ }
+    }
+
+    return NextResponse.json({ success: true, redirectUrl });
   } catch (error) {
     console.error('Confirm payment error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
