@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { isFeatureEnabled } from '@/lib/db';
 
 export async function GET() {
+  if (!(await isFeatureEnabled('diag'))) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
   const mpgsConfigured = !!(
     process.env.MPGS_MERCHANT_ID &&
     process.env.MPGS_API_PASSWORD &&

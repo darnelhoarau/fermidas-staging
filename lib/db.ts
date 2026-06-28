@@ -2779,6 +2779,36 @@ export async function deleteUserWithData(userId: string) {
   }
 }
 
+// ── Feature flags ──
+
+export async function isFeatureEnabled(feature: string): Promise<boolean> {
+  try {
+    const row = await getSetting(`feature_${feature}`);
+    if (!row) return true; // not yet set = enabled by default
+    return row.value_json === 'true';
+  } catch {
+    return true; // settings table doesn't exist yet = enabled by default
+  }
+}
+
+export async function listFeatureFlags(): Promise<{ key: string; enabled: boolean }[]> {
+  try {
+    const result = await pool.query(
+      `SELECT key, value_json FROM settings WHERE key LIKE 'feature_%' ORDER BY key`,
+    );
+    return result.rows.map((r: { key: string; value_json: string }) => ({
+      key: r.key.replace('feature_', ''),
+      enabled: r.value_json === 'true',
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function setFeatureFlag(feature: string, enabled: boolean): Promise<void> {
+  await upsertSetting(`feature_${feature}`, enabled ? 'true' : 'false');
+}
+
 // Close the pool when the application shuts down
 process.on('SIGINT', () => {
   pool.end();

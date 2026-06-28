@@ -1,7 +1,9 @@
+import { Suspense } from 'react';
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { PaymentSuccessHandler } from './PaymentSuccessHandler';
 import * as db from '@/lib/db';
 import { fromMinorUnits, isPaymentEnabled } from '@/lib/mpgs';
 import { isPaymentExempt } from '@/lib/payment-config';
@@ -42,6 +44,9 @@ export default async function AccountPage() {
   return (
     <section className='bg-gradient-to-br from-mint to-white pt-12 pb-24 md:pb-28'>
       <div className='container'>
+        <Suspense fallback={null}>
+          <PaymentSuccessHandler />
+        </Suspense>
         <div className='mb-12'>
           <h1 className='font-display mb-4 text-2xl font-bold text-brand md:text-4xl'>
             My Account
