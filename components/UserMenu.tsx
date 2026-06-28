@@ -110,12 +110,6 @@ export function UserMenu({ isMobile = false }: UserMenuProps) {
       description: 'Manage users and roles',
     },
     {
-      label: 'Enrollments',
-      href: '/digital/admin/enrollments',
-      icon: Shield01Icon,
-      description: 'Manage course enrollments',
-    },
-    {
       label: 'Admin Dashboard',
       href: '/digital/admin/compliance-watch',
       icon: Shield01Icon,
