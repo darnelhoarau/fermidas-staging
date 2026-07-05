@@ -2943,7 +2943,7 @@ export async function hasCompletedAllVideoLessons(
   try {
     const result = await pool.query(query, [userId, courseId]);
     const { total_video, completed_video } = result.rows[0];
-    return total_video > 0 && total_video === completed_video;
+    return total_video === 0 || total_video === completed_video;
   } catch (error) {
     console.error('Error checking video lessons completion:', error);
     throw error;

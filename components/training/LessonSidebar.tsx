@@ -36,7 +36,7 @@ export function LessonSidebar({
       <aside
         className={`${
           open ? 'block' : 'hidden'
-        } lg:block lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto`}
+        } lg:block`}
       >
         <div className='card mb-4 p-5'>
           <CourseProgressBar
