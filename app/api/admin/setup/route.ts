@@ -13,6 +13,12 @@ const MIGRATION_COLUMNS: [string, string][] = [
   ['enrolled_at', 'TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP'],
 ];
 
+const LESSON_MIGRATION_COLUMNS: [string, string][] = [
+  ['lesson_type', "VARCHAR(20) DEFAULT 'video'"],
+  ['quiz_id', 'VARCHAR(255)'],
+  ['quiz_config', "JSONB DEFAULT '{}'::jsonb"],
+];
+
 const FEATURE_DEFAULTS: [string, boolean][] = [
   ['setup', true],
   ['migrate', true],
@@ -41,6 +47,36 @@ async function runMigrations(): Promise<string[]> {
       operations.push(`Added course_enrollments.${col}`);
     }
   }
+
+  for (const [col, type] of LESSON_MIGRATION_COLUMNS) {
+    if (await ensureColumn('course_lessons', col, type)) {
+      operations.push(`Added course_lessons.${col}`);
+    }
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS quiz_results (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      course_id TEXT NOT NULL REFERENCES courses(id),
+      lesson_id TEXT NOT NULL REFERENCES course_lessons(id),
+      quiz_id VARCHAR(255) NOT NULL,
+      score INTEGER,
+      total INTEGER,
+      percentage DECIMAL(5,2),
+      passed BOOLEAN,
+      raw_result JSONB,
+      attempted_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  operations.push('Ensured quiz_results table exists');
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_quiz_results_user_course ON quiz_results(user_id, course_id);
+    CREATE INDEX IF NOT EXISTS idx_quiz_results_lesson ON quiz_results(lesson_id);
+  `);
+  operations.push('Ensured quiz_results indexes exist');
 
   const backfill = await pool.query(`
     UPDATE course_enrollments ce

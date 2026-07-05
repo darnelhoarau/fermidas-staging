@@ -29,6 +29,9 @@ const updateLessonSchema = z.object({
   resourceUrls: z.array(resourceSchema).optional(),
   isPreview: z.boolean().optional(),
   sort: z.number().int().min(0).optional(),
+  lessonType: z.enum(['video', 'quiz']).optional(),
+  quizId: z.string().nullable().optional(),
+  quizConfig: z.record(z.unknown()).optional(),
 });
 
 export async function PATCH(

@@ -26,6 +26,9 @@ interface Lesson {
   resource_urls: TrainingResourceUrl[];
   is_preview: boolean;
   sort: number;
+  lesson_type?: string;
+  quiz_id?: string | null;
+  quiz_config?: Record<string, unknown>;
 }
 
 export function LessonForm({
@@ -41,6 +44,10 @@ export function LessonForm({
   onSaved: () => void;
   onCancel?: () => void;
 }) {
+  const [lessonType, setLessonType] = useState(
+    lesson?.lesson_type || 'video',
+  );
+  const [quizId, setQuizId] = useState(lesson?.quiz_id || '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -52,6 +59,17 @@ export function LessonForm({
   );
   const [generatedPosterUrl, setGeneratedPosterUrl] = useState('');
   const [useAsCourseCover, setUseAsCourseCover] = useState(true);
+
+  function handleLessonTypeChange(type: string) {
+    setLessonType(type);
+    if (type === 'quiz') {
+      setVideoUrl('');
+      setDurationSeconds(0);
+    } else if (type === 'video' && lesson?.video_url) {
+      setVideoUrl(lesson.video_url);
+      setDurationSeconds(lesson.video_duration_seconds);
+    }
+  }
 
   async function handleVideoUpload() {
     if (!videoFile) {
@@ -159,17 +177,42 @@ export function LessonForm({
     setSaving(true);
     setError('');
 
-    const formData = new FormData(event.currentTarget);
-    const payload = {
+    const payload: Record<string, unknown> = {
       moduleId,
-      title: String(formData.get('title') || ''),
-      description: String(formData.get('description') || ''),
-      videoUrl,
-      videoDurationSeconds: durationSeconds,
-      resourceUrls: textToResources(String(formData.get('resourceUrls') || '')),
-      isPreview: formData.get('isPreview') === 'on',
-      sort: Number(formData.get('sort') || 0),
+      title: String(
+        (event.currentTarget.elements.namedItem('title') as HTMLInputElement)
+          ?.value || '',
+      ),
+      description: String(
+        (event.currentTarget.elements.namedItem('description') as HTMLTextAreaElement)
+          ?.value || '',
+      ),
+      resourceUrls: textToResources(
+        String(
+          (event.currentTarget.elements.namedItem('resourceUrls') as HTMLTextAreaElement)
+            ?.value || '',
+        ),
+      ),
+      sort: Number(
+        (event.currentTarget.elements.namedItem('sort') as HTMLInputElement)
+          ?.value || 0,
+      ),
+      lessonType,
+      quizId: quizId || null,
+      quizConfig: {},
     };
+
+    if (lessonType === 'video') {
+      payload.videoUrl = videoUrl;
+      payload.videoDurationSeconds = durationSeconds;
+      payload.isPreview =
+        (event.currentTarget.elements.namedItem('isPreview') as HTMLInputElement)
+          ?.checked || false;
+    } else {
+      payload.videoUrl = null;
+      payload.videoDurationSeconds = 0;
+      payload.isPreview = false;
+    }
 
     try {
       const response = await fetch(
@@ -210,105 +253,38 @@ export function LessonForm({
           {error}
         </div>
       )}
+
+      <div className='flex gap-2 rounded-lg border border-leaf-200 bg-white p-1'>
+        <button
+          type='button'
+          onClick={() => handleLessonTypeChange('video')}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            lessonType === 'video'
+              ? 'bg-leaf-600 text-white'
+              : 'text-brand hover:bg-leaf-50'
+          }`}
+        >
+          Video Lesson
+        </button>
+        <button
+          type='button'
+          onClick={() => handleLessonTypeChange('quiz')}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            lessonType === 'quiz'
+              ? 'bg-leaf-600 text-white'
+              : 'text-brand hover:bg-leaf-50'
+          }`}
+        >
+          Quiz
+        </button>
+      </div>
+
       <div className='grid gap-4 md:grid-cols-2'>
         <input
           name='title'
           required
           placeholder='Lesson title'
           defaultValue={lesson?.title || ''}
-          className={inputClass}
-        />
-        <input
-          name='videoUrl'
-          type='text'
-          placeholder='Video URL'
-          value={videoUrl}
-          onChange={(event) => setVideoUrl(event.target.value)}
-          className={inputClass}
-        />
-      </div>
-
-      <div className='rounded-xl border border-leaf-200 bg-white p-4'>
-        <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end'>
-          <label className='block'>
-            <span className='mb-2 block text-sm font-medium text-brand'>
-              MP4 video
-            </span>
-            <input
-              type='file'
-              accept='video/mp4,.mp4'
-              onChange={(event) => {
-                setVideoFile(event.target.files?.[0] || null);
-                setUploadMessage('');
-              }}
-              className='w-full rounded-lg border border-leaf-300 bg-white px-4 py-2 text-sm text-brand file:mr-4 file:rounded-lg file:border-0 file:bg-leaf-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand'
-            />
-          </label>
-          <button
-            type='button'
-            onClick={handleVideoUpload}
-            disabled={uploading || !videoFile}
-            className='btn btn-primary rounded-xl disabled:cursor-not-allowed disabled:opacity-50'
-          >
-            <Upload01Icon className='h-4 w-4' />
-            {uploading ? 'Uploading...' : 'Upload Video'}
-          </button>
-        </div>
-        <div className='mt-3 flex flex-wrap items-center gap-4'>
-          <label className='flex items-center gap-3 text-sm font-medium text-brand'>
-            <input
-              type='checkbox'
-              checked={useAsCourseCover}
-              onChange={(event) => setUseAsCourseCover(event.target.checked)}
-              className='h-4 w-4 rounded border-leaf-300 text-leaf-600'
-            />
-            Use generated frame as course cover
-          </label>
-          {uploadMessage && (
-            <span className='inline-flex items-center gap-2 text-sm font-medium text-success'>
-              <CheckmarkCircle01Icon className='h-4 w-4' />
-              {uploadMessage}
-            </span>
-          )}
-        </div>
-        {generatedPosterUrl && (
-          <div className='mt-4 overflow-hidden rounded-xl border border-leaf-100 bg-leaf-50'>
-            <div className='aspect-video bg-brand'>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={generatedPosterUrl}
-                alt=''
-                className='h-full w-full object-cover'
-              />
-            </div>
-            <div className='px-4 py-3 text-sm font-medium text-leaf-700'>
-              Generated poster
-            </div>
-          </div>
-        )}
-      </div>
-
-      <textarea
-        name='description'
-        rows={3}
-        placeholder='Lesson description'
-        defaultValue={lesson?.description || ''}
-        className={inputClass}
-      />
-      <div className='grid gap-4 md:grid-cols-3'>
-        <input
-          name='durationMinutes'
-          type='number'
-          min='0'
-          step='0.1'
-          placeholder='Duration minutes'
-          value={
-            durationSeconds ? Number((durationSeconds / 60).toFixed(1)) : ''
-          }
-          onChange={(event) => {
-            const minutes = Number(event.target.value || 0);
-            setDurationSeconds(Math.max(0, Math.round(minutes * 60)));
-          }}
           className={inputClass}
         />
         <input
@@ -319,16 +295,134 @@ export function LessonForm({
           defaultValue={lesson?.sort || 0}
           className={inputClass}
         />
-        <label className='flex items-center gap-3 rounded-lg border border-leaf-300 bg-white px-4 py-2 text-sm font-medium text-brand'>
-          <input
-            name='isPreview'
-            type='checkbox'
-            defaultChecked={lesson?.is_preview || false}
-            className='h-4 w-4 rounded border-leaf-300 text-leaf-600'
-          />
-          Free preview
-        </label>
       </div>
+
+      {lessonType === 'video' ? (
+        <>
+          <input
+            name='videoUrl'
+            type='text'
+            placeholder='Video URL'
+            value={videoUrl}
+            onChange={(event) => setVideoUrl(event.target.value)}
+            className={inputClass}
+          />
+
+          <div className='rounded-xl border border-leaf-200 bg-white p-4'>
+            <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end'>
+              <label className='block'>
+                <span className='mb-2 block text-sm font-medium text-brand'>
+                  MP4 video
+                </span>
+                <input
+                  type='file'
+                  accept='video/mp4,.mp4'
+                  onChange={(event) => {
+                    setVideoFile(event.target.files?.[0] || null);
+                    setUploadMessage('');
+                  }}
+                  className='w-full rounded-lg border border-leaf-300 bg-white px-4 py-2 text-sm text-brand file:mr-4 file:rounded-lg file:border-0 file:bg-leaf-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand'
+                />
+              </label>
+              <button
+                type='button'
+                onClick={handleVideoUpload}
+                disabled={uploading || !videoFile}
+                className='btn btn-primary rounded-xl disabled:cursor-not-allowed disabled:opacity-50'
+              >
+                <Upload01Icon className='h-4 w-4' />
+                {uploading ? 'Uploading...' : 'Upload Video'}
+              </button>
+            </div>
+            <div className='mt-3 flex flex-wrap items-center gap-4'>
+              <label className='flex items-center gap-3 text-sm font-medium text-brand'>
+                <input
+                  type='checkbox'
+                  checked={useAsCourseCover}
+                  onChange={(event) => setUseAsCourseCover(event.target.checked)}
+                  className='h-4 w-4 rounded border-leaf-300 text-leaf-600'
+                />
+                Use generated frame as course cover
+              </label>
+              {uploadMessage && (
+                <span className='inline-flex items-center gap-2 text-sm font-medium text-success'>
+                  <CheckmarkCircle01Icon className='h-4 w-4' />
+                  {uploadMessage}
+                </span>
+              )}
+            </div>
+            {generatedPosterUrl && (
+              <div className='mt-4 overflow-hidden rounded-xl border border-leaf-100 bg-leaf-50'>
+                <div className='aspect-video bg-brand'>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={generatedPosterUrl}
+                    alt=''
+                    className='h-full w-full object-cover'
+                  />
+                </div>
+                <div className='px-4 py-3 text-sm font-medium text-leaf-700'>
+                  Generated poster
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className='grid gap-4 md:grid-cols-3'>
+            <input
+              name='durationMinutes'
+              type='number'
+              min='0'
+              step='0.1'
+              placeholder='Duration minutes'
+              value={
+                durationSeconds ? Number((durationSeconds / 60).toFixed(1)) : ''
+              }
+              onChange={(event) => {
+                const minutes = Number(event.target.value || 0);
+                setDurationSeconds(Math.max(0, Math.round(minutes * 60)));
+              }}
+              className={inputClass}
+            />
+            <div />
+            <label className='flex items-center gap-3 rounded-lg border border-leaf-300 bg-white px-4 py-2 text-sm font-medium text-brand'>
+              <input
+                name='isPreview'
+                type='checkbox'
+                defaultChecked={lesson?.is_preview || false}
+                className='h-4 w-4 rounded border-leaf-300 text-leaf-600'
+              />
+              Free preview
+            </label>
+          </div>
+        </>
+      ) : (
+        <div className='rounded-xl border border-leaf-200 bg-white p-4'>
+          <label className='block'>
+            <span className='mb-2 block text-sm font-medium text-brand'>
+              ClassMarker Quiz ID
+            </span>
+            <input
+              type='text'
+              value={quizId}
+              onChange={(event) => setQuizId(event.target.value)}
+              placeholder='e.g. 7a66a49e272400f3'
+              className={inputClass}
+            />
+          </label>
+          <p className='mt-2 text-xs text-leaf-500'>
+            Find this in your ClassMarker embed script: <code className='rounded bg-leaf-100 px-1 py-0.5'>quiz=YOUR_QUIZ_ID</code>
+          </p>
+        </div>
+      )}
+
+      <textarea
+        name='description'
+        rows={3}
+        placeholder='Lesson description'
+        defaultValue={lesson?.description || ''}
+        className={inputClass}
+      />
       <textarea
         name='resourceUrls'
         rows={3}

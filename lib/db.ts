@@ -2203,6 +2203,9 @@ export async function createCourseLesson(data: {
   resourceUrls?: CourseResourceUrl[];
   isPreview?: boolean;
   sort?: number;
+  lessonType?: string;
+  quizId?: string | null;
+  quizConfig?: Record<string, unknown>;
 }) {
   const courseModule = await findCourseModuleById(data.moduleId);
   if (!courseModule || courseModule.course_id !== data.courseId) {
@@ -2224,9 +2227,10 @@ export async function createCourseLesson(data: {
   const query = `
     INSERT INTO course_lessons (
       id, module_id, course_id, title, description, video_url,
-      video_duration_seconds, resource_urls, is_preview, sort
+      video_duration_seconds, resource_urls, is_preview, sort,
+      lesson_type, quiz_id, quiz_config
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13::jsonb)
     RETURNING *
   `;
 
@@ -2242,6 +2246,9 @@ export async function createCourseLesson(data: {
       JSON.stringify(data.resourceUrls || []),
       data.isPreview || false,
       sort,
+      data.lessonType || 'video',
+      data.quizId || null,
+      JSON.stringify(data.quizConfig || {}),
     ]);
     await recalculateCourseStats(data.courseId);
     return result.rows[0];
@@ -2262,6 +2269,9 @@ export async function updateCourseLesson(
     resourceUrls: CourseResourceUrl[];
     isPreview: boolean;
     sort: number;
+    lessonType: string;
+    quizId: string | null;
+    quizConfig: Record<string, unknown>;
   }>,
 ) {
   const existing = await findCourseLessonById(id);
@@ -2309,6 +2319,18 @@ export async function updateCourseLesson(
   if (data.sort !== undefined) {
     fields.push(`sort = $${paramCount++}`);
     values.push(data.sort);
+  }
+  if (data.lessonType !== undefined) {
+    fields.push(`lesson_type = $${paramCount++}`);
+    values.push(data.lessonType);
+  }
+  if (data.quizId !== undefined) {
+    fields.push(`quiz_id = $${paramCount++}`);
+    values.push(data.quizId);
+  }
+  if (data.quizConfig !== undefined) {
+    fields.push(`quiz_config = $${paramCount++}::jsonb`);
+    values.push(JSON.stringify(data.quizConfig));
   }
 
   if (fields.length === 0) return existing;
@@ -2537,6 +2559,8 @@ export async function findCourseProgress(userId: string, courseId: string) {
       cl.course_id,
       cl.title,
       cl.video_duration_seconds,
+      cl.lesson_type,
+      cl.quiz_id,
       lp.watch_seconds,
       lp.completed_at
     FROM course_lessons cl
@@ -2826,6 +2850,104 @@ export async function listFeatureFlags(): Promise<{ key: string; enabled: boolea
 
 export async function setFeatureFlag(feature: string, enabled: boolean): Promise<void> {
   await upsertSetting(`feature_${feature}`, enabled ? 'true' : 'false');
+}
+
+// ── Quiz results ──
+
+export async function createQuizResult(data: {
+  userId: string;
+  courseId: string;
+  lessonId: string;
+  quizId: string;
+  score: number;
+  total: number;
+  percentage: number;
+  passed: boolean;
+  rawResult: Record<string, unknown>;
+}) {
+  const id = generateId('quizresult');
+  const query = `
+    INSERT INTO quiz_results (id, user_id, course_id, lesson_id, quiz_id, score, total, percentage, passed, raw_result)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
+    RETURNING *
+  `;
+  try {
+    const result = await pool.query(query, [
+      id,
+      data.userId,
+      data.courseId,
+      data.lessonId,
+      data.quizId,
+      data.score,
+      data.total,
+      data.percentage,
+      data.passed,
+      JSON.stringify(data.rawResult),
+    ]);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error creating quiz result:', error);
+    throw error;
+  }
+}
+
+export async function findQuizResultByUserAndLesson(
+  userId: string,
+  lessonId: string,
+) {
+  const query = `
+    SELECT * FROM quiz_results
+    WHERE user_id = $1 AND lesson_id = $2
+    ORDER BY attempted_at DESC
+    LIMIT 1
+  `;
+  try {
+    const result = await pool.query(query, [userId, lessonId]);
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error('Error finding quiz result:', error);
+    throw error;
+  }
+}
+
+export async function findCourseLessonByQuizId(
+  quizId: string,
+  courseId: string,
+) {
+  const query = `
+    SELECT * FROM course_lessons
+    WHERE quiz_id = $1 AND course_id = $2
+    LIMIT 1
+  `;
+  try {
+    const result = await pool.query(query, [quizId, courseId]);
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error('Error finding lesson by quiz id:', error);
+    throw error;
+  }
+}
+
+export async function hasCompletedAllVideoLessons(
+  userId: string,
+  courseId: string,
+): Promise<boolean> {
+  const query = `
+    SELECT
+      COUNT(*) FILTER (WHERE cl.lesson_type IS NULL OR cl.lesson_type = 'video') AS total_video,
+      COUNT(*) FILTER (WHERE (cl.lesson_type IS NULL OR cl.lesson_type = 'video') AND lp.completed_at IS NOT NULL) AS completed_video
+    FROM course_lessons cl
+    LEFT JOIN lesson_progress lp ON lp.lesson_id = cl.id AND lp.user_id = $1
+    WHERE cl.course_id = $2
+  `;
+  try {
+    const result = await pool.query(query, [userId, courseId]);
+    const { total_video, completed_video } = result.rows[0];
+    return total_video > 0 && total_video === completed_video;
+  } catch (error) {
+    console.error('Error checking video lessons completion:', error);
+    throw error;
+  }
 }
 
 // Close the pool when the application shuts down

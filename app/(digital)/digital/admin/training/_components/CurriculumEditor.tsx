@@ -17,6 +17,8 @@ interface Lesson {
   resource_urls: TrainingResourceUrl[];
   is_preview: boolean;
   sort: number;
+  lesson_type?: string;
+  quiz_id?: string | null;
 }
 
 interface Module {
@@ -250,9 +252,18 @@ export function CurriculumEditor({
                         <div className='font-semibold text-brand'>
                           {lesson.title}
                         </div>
-                        <div className='mt-1 text-sm text-leaf-600'>
-                          {lesson.is_preview ? 'Preview lesson' : 'Paid lesson'}{' '}
-                          · {Math.round(lesson.video_duration_seconds / 60)} min
+                        <div className='mt-1 flex items-center gap-2 text-sm text-leaf-600'>
+                          {lesson.lesson_type === 'quiz' ? (
+                            <span className='rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700'>
+                              Quiz
+                            </span>
+                          ) : (
+                            <>
+                              {lesson.is_preview ? 'Preview lesson' : 'Paid lesson'}
+                              {' · '}
+                              {Math.round(lesson.video_duration_seconds / 60)} min
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className='flex flex-wrap gap-2'>

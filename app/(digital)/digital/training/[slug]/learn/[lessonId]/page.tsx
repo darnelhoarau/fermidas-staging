@@ -6,6 +6,7 @@ import * as db from '@/lib/db';
 import { canAccessCourse } from '@/lib/training-access';
 import type { TrainingResourceUrl } from '@/lib/training-utils';
 import { CoursePlayer } from '@/components/training/CoursePlayer';
+import { QuizEmbed } from '@/components/training/QuizEmbed';
 import { LessonSidebar } from '@/components/training/LessonSidebar';
 
 export const dynamic = 'force-dynamic';
@@ -56,10 +57,36 @@ export default async function LessonPlayerPage({ params }: PageProps) {
       : Promise.resolve(null),
   ]);
 
+  const isQuizLesson = lesson.lesson_type === 'quiz';
+
+  if (isQuizLesson && session?.user) {
+    const allVideoDone = await db.hasCompletedAllVideoLessons(
+      session.user.id,
+      course.id,
+    );
+    if (!allVideoDone) {
+      redirect(`/digital/training/${course.slug}`);
+    }
+  }
+
   const completedLessonIds =
     progress?.lessons
       .filter((progressLesson) => progressLesson.completed_at)
       .map((progressLesson) => progressLesson.lesson_id) || [];
+  const videoLessonIds = progress?.lessons
+    .filter((pl) => pl.lesson_type !== 'quiz')
+    .map((pl) => pl.lesson_id) || [];
+  const allVideoDone = videoLessonIds.every((id) =>
+    completedLessonIds.includes(id),
+  );
+  const lockedLessonIds = progress?.lessons
+    .filter(
+      (pl) =>
+        pl.lesson_type === 'quiz' &&
+        !completedLessonIds.includes(pl.lesson_id) &&
+        !allVideoDone,
+    )
+    .map((pl) => pl.lesson_id) || [];
   const currentProgress = progress?.lessons.find(
     (progressLesson) => progressLesson.lesson_id === lesson.id,
   );
@@ -78,6 +105,38 @@ export default async function LessonPlayerPage({ params }: PageProps) {
   const resources = Array.isArray(lesson.resource_urls)
     ? (lesson.resource_urls as TrainingResourceUrl[])
     : [];
+
+  async function renderQuizResult() {
+    if (!session?.user || !isQuizLesson || !lesson.quiz_id) return null;
+    try {
+      const result = await db.findQuizResultByUserAndLesson(
+        session.user.id,
+        lesson.id,
+      );
+      if (!result) return null;
+      return (
+        <div className={`rounded-2xl p-6 text-center ${
+          result.passed ? 'bg-success/10' : 'bg-amber-50'
+        }`}>
+          <div className='text-3xl font-bold text-brand'>
+            {result.percentage}%
+          </div>
+          <div className='mt-1 text-sm text-leaf-600'>
+            Score: {result.score}/{result.total}
+          </div>
+          <div className='mt-3 text-sm font-medium'>
+            {result.passed ? (
+              <span className='text-success'>Passed</span>
+            ) : (
+              <span className='text-amber-600'>Attempted</span>
+            )}
+          </div>
+        </div>
+      );
+    } catch {
+      return null;
+    }
+  }
 
   return (
     <section className='bg-gradient-to-br from-mint to-white pt-8 pb-24'>
@@ -106,23 +165,48 @@ export default async function LessonPlayerPage({ params }: PageProps) {
             completedLessonIds={completedLessonIds}
             activeLessonId={lesson.id}
             progressPercent={progress?.percent || 0}
+            lockedLessonIds={lockedLessonIds}
           />
 
           <main className='min-w-0'>
-            <CoursePlayer
-              courseId={course.id}
-              lessonId={lesson.id}
-              title={lesson.title}
-              description={lesson.description}
-              videoSrc={
-                lesson.video_url
-                  ? `/api/training/lessons/${lesson.id}/video`
-                  : null
-              }
-              resources={resources}
-              canTrackProgress={!!courseAccess && !!session?.user}
-              initiallyCompleted={!!currentProgress?.completed_at}
-            />
+            {isQuizLesson ? (
+              <div className='space-y-6'>
+                <div className='card p-6'>
+                  <h1 className='font-display text-2xl font-bold text-brand'>
+                    {lesson.title}
+                  </h1>
+                  {lesson.description && (
+                    <p className='mt-3 leading-relaxed text-leaf-700'>
+                      {lesson.description}
+                    </p>
+                  )}
+                </div>
+
+                {session?.user && lesson.quiz_id && (
+                  <QuizEmbed
+                    quizId={lesson.quiz_id}
+                    userId={`${session.user.id}-${course.id}`}
+                  />
+                )}
+
+                {await renderQuizResult()}
+              </div>
+            ) : (
+              <CoursePlayer
+                courseId={course.id}
+                lessonId={lesson.id}
+                title={lesson.title}
+                description={lesson.description}
+                videoSrc={
+                  lesson.video_url
+                    ? `/api/training/lessons/${lesson.id}/video`
+                    : null
+                }
+                resources={resources}
+                canTrackProgress={!!courseAccess && !!session?.user}
+                initiallyCompleted={!!currentProgress?.completed_at}
+              />
+            )}
 
             <div className='mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between'>
               {previousLesson ? (

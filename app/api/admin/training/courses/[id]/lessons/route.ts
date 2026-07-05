@@ -29,6 +29,9 @@ const lessonSchema = z.object({
   resourceUrls: z.array(resourceSchema).default([]),
   isPreview: z.boolean().default(false),
   sort: z.number().int().min(0).optional(),
+  lessonType: z.enum(['video', 'quiz']).default('video'),
+  quizId: z.string().nullable().optional(),
+  quizConfig: z.record(z.unknown()).default({}),
 });
 
 export async function POST(
@@ -56,6 +59,9 @@ export async function POST(
       resourceUrls: data.resourceUrls,
       isPreview: data.isPreview,
       sort: data.sort,
+      lessonType: data.lessonType,
+      quizId: data.quizId,
+      quizConfig: data.quizConfig,
     });
 
     await db.createAuditLog({

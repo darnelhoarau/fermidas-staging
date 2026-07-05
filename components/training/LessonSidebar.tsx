@@ -11,12 +11,14 @@ export function LessonSidebar({
   completedLessonIds,
   activeLessonId,
   progressPercent,
+  lockedLessonIds = [],
 }: {
   courseSlug: string;
   modules: CurriculumModule[];
   completedLessonIds: string[];
   activeLessonId: string;
   progressPercent: number;
+  lockedLessonIds?: string[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -49,6 +51,7 @@ export function LessonSidebar({
           completedLessonIds={completedLessonIds}
           activeLessonId={activeLessonId}
           linkLessons
+          lockedLessonIds={lockedLessonIds}
         />
       </aside>
     </>

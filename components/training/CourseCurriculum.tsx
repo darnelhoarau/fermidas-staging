@@ -4,6 +4,7 @@ import {
   LockKeyIcon,
   PlayIcon,
   Time01Icon,
+  Certificate01Icon,
 } from 'hugeicons-react';
 import { formatDuration } from '@/lib/training-utils';
 
@@ -12,6 +13,8 @@ export interface CurriculumLesson {
   title: string;
   video_duration_seconds: number;
   is_preview: boolean;
+  lesson_type?: string;
+  quiz_id?: string | null;
 }
 
 export interface CurriculumModule {
@@ -28,6 +31,7 @@ export function CourseCurriculum({
   completedLessonIds = [],
   activeLessonId,
   linkLessons = false,
+  lockedLessonIds = [],
 }: {
   courseSlug: string;
   modules: CurriculumModule[];
@@ -35,6 +39,7 @@ export function CourseCurriculum({
   completedLessonIds?: string[];
   activeLessonId?: string;
   linkLessons?: boolean;
+  lockedLessonIds?: string[];
 }) {
   if (modules.length === 0) {
     return (
@@ -65,17 +70,22 @@ export function CourseCurriculum({
 
           <div className='divide-y divide-leaf-100'>
             {module.lessons.map((lesson) => {
+              const isQuiz = lesson.lesson_type === 'quiz';
               const isCompleted = completedLessonIds.includes(lesson.id);
-              const canOpen = canAccessCourse || lesson.is_preview;
+              const isLocked = lockedLessonIds.includes(lesson.id);
+              const canOpen =
+                (canAccessCourse || lesson.is_preview) && !isLocked;
               const content = (
                 <div
                   className={`flex items-center gap-3 px-5 py-3 text-sm ${
                     activeLessonId === lesson.id ? 'bg-mint' : 'bg-white'
-                  }`}
+                  } ${isLocked ? 'opacity-60' : ''}`}
                 >
                   <div className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-leaf-50 text-leaf-700'>
                     {isCompleted ? (
                       <CheckmarkCircle01Icon className='h-4 w-4 text-success' />
+                    ) : isQuiz ? (
+                      <Certificate01Icon className='h-4 w-4 text-amber-600' />
                     ) : canOpen ? (
                       <PlayIcon className='h-4 w-4' />
                     ) : (
@@ -83,13 +93,29 @@ export function CourseCurriculum({
                     )}
                   </div>
                   <div className='min-w-0 flex-1'>
-                    <div className='font-medium text-brand'>{lesson.title}</div>
+                    <div className='font-medium text-brand'>
+                      {lesson.title}
+                    </div>
                     <div className='mt-1 flex items-center gap-3 text-xs text-leaf-600'>
-                      <span className='inline-flex items-center gap-1'>
-                        <Time01Icon className='h-3 w-3' />
-                        {formatDuration(lesson.video_duration_seconds)}
-                      </span>
-                      {lesson.is_preview && <span>Preview</span>}
+                      {isQuiz ? (
+                        <>
+                          <Certificate01Icon className='h-3 w-3' />
+                          <span>Assessment</span>
+                          {isLocked && (
+                            <span className='text-amber-600'>
+                              · Complete all lessons first
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <span className='inline-flex items-center gap-1'>
+                            <Time01Icon className='h-3 w-3' />
+                            {formatDuration(lesson.video_duration_seconds)}
+                          </span>
+                          {lesson.is_preview && <span>Preview</span>}
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
