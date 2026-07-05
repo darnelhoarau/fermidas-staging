@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHmac } from 'crypto';
 import * as db from '@/lib/db';
 
 const EXPECTED_SECRET = process.env.CLASSMARKER_SECRET;
@@ -9,29 +10,46 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    let rawBody: string;
+    try {
+      rawBody = await request.text();
+    } catch {
+      return NextResponse.json({ error: 'Could not read body' }, { status: 400 });
+    }
+
     if (EXPECTED_SECRET) {
-      const secret = request.headers.get('x-classmarker-secret');
-      if (secret !== EXPECTED_SECRET) {
-        return NextResponse.json({ error: 'Invalid secret' }, { status: 401 });
+      const sig = request.headers.get('x-classmarker-hmac-sha256');
+      if (!sig) {
+        return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
+      }
+      const calculated = createHmac('sha256', EXPECTED_SECRET)
+        .update(rawBody)
+        .digest('base64');
+      if (sig !== calculated) {
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       }
     }
 
-    let body: Record<string, unknown> = {};
+    let body: Record<string, unknown>;
     try {
-      body = await request.json();
+      body = JSON.parse(rawBody);
     } catch {
-      // ClassMarker may send non-JSON test payloads — respond 200 to activate
       return NextResponse.json({ success: true });
     }
 
-    const cmUserId = body.user_id || body.cm_user_id;
-    const quizId = body.test_id || body.quiz_id;
-    const score = body.score;
-    const total = body.total;
-    const passed = body.passed;
+    if (body.payload_status === 'verify') {
+      return NextResponse.json({ success: true });
+    }
 
-    if (!cmUserId || !quizId) {
-      // Test/verification payload without real user data — accept to activate
+    const testId = (body.test as Record<string, unknown> | undefined)?.test_id;
+    const result = body.result as Record<string, unknown> | undefined;
+    const cmUserId = result?.cm_user_id;
+    const percentage = result?.percentage;
+    const pointsScored = result?.points_scored;
+    const pointsAvailable = result?.points_available;
+    const passed = result?.passed;
+
+    if (!cmUserId || !testId) {
       return NextResponse.json({ success: true });
     }
 
@@ -45,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const lesson = await db.findCourseLessonByQuizId(
-        String(quizId),
+        String(testId),
         courseId,
       );
 
@@ -54,13 +72,10 @@ export async function POST(request: NextRequest) {
           userId,
           courseId,
           lessonId: lesson.id,
-          quizId: String(quizId),
-          score: Number(score) || 0,
-          total: Number(total) || 0,
-          percentage:
-            Number(score) && Number(total)
-              ? Math.round((Number(score) / Number(total)) * 10000) / 100
-              : 0,
+          quizId: String(testId),
+          score: Number(pointsScored) || 0,
+          total: Number(pointsAvailable) || 0,
+          percentage: Number(percentage) || 0,
           passed: passed === true || passed === 'true',
           rawResult: body,
         });
@@ -68,7 +83,6 @@ export async function POST(request: NextRequest) {
         await db.markLessonComplete(userId, lesson.id, courseId);
       }
     } catch {
-      // Log but don't fail — ClassMarker needs 200 to activate
       console.error('ClassMarker webhook processing error:', body);
     }
 
