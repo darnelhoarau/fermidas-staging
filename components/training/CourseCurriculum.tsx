@@ -114,6 +114,11 @@ export function CourseCurriculum({
                             {formatDuration(lesson.video_duration_seconds)}
                           </span>
                           {lesson.is_preview && <span>Preview</span>}
+                          {isLocked && (
+                            <span className='text-amber-600'>
+                              · Complete previous lesson first
+                            </span>
+                          )}
                         </>
                       )}
                     </div>
@@ -122,10 +127,13 @@ export function CourseCurriculum({
               );
 
               if (linkLessons && canOpen) {
+                const href = isQuiz
+                  ? `/digital/training/${courseSlug}/quiz`
+                  : `/digital/training/${courseSlug}/learn/${lesson.id}`;
                 return (
                   <Link
                     key={lesson.id}
-                    href={`/digital/training/${courseSlug}/learn/${lesson.id}`}
+                    href={href}
                     className='block hover:bg-leaf-50'
                   >
                     {content}

@@ -44,10 +44,6 @@ export function LessonForm({
   onSaved: () => void;
   onCancel?: () => void;
 }) {
-  const [lessonType, setLessonType] = useState(
-    lesson?.lesson_type || 'video',
-  );
-  const [quizId, setQuizId] = useState(lesson?.quiz_id || '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -59,17 +55,6 @@ export function LessonForm({
   );
   const [generatedPosterUrl, setGeneratedPosterUrl] = useState('');
   const [useAsCourseCover, setUseAsCourseCover] = useState(true);
-
-  function handleLessonTypeChange(type: string) {
-    setLessonType(type);
-    if (type === 'quiz') {
-      setVideoUrl('');
-      setDurationSeconds(0);
-    } else if (type === 'video' && lesson?.video_url) {
-      setVideoUrl(lesson.video_url);
-      setDurationSeconds(lesson.video_duration_seconds);
-    }
-  }
 
   async function handleVideoUpload() {
     if (!videoFile) {
@@ -197,22 +182,13 @@ export function LessonForm({
         (event.currentTarget.elements.namedItem('sort') as HTMLInputElement)
           ?.value || 0,
       ),
-      lessonType,
-      quizId: quizId || null,
-      quizConfig: {},
-    };
-
-    if (lessonType === 'video') {
-      payload.videoUrl = videoUrl;
-      payload.videoDurationSeconds = durationSeconds;
-      payload.isPreview =
+      lessonType: 'video',
+      videoUrl,
+      videoDurationSeconds: durationSeconds,
+      isPreview:
         (event.currentTarget.elements.namedItem('isPreview') as HTMLInputElement)
-          ?.checked || false;
-    } else {
-      payload.videoUrl = null;
-      payload.videoDurationSeconds = 0;
-      payload.isPreview = false;
-    }
+          ?.checked || false,
+    };
 
     try {
       const response = await fetch(
@@ -254,31 +230,6 @@ export function LessonForm({
         </div>
       )}
 
-      <div className='flex gap-2 rounded-lg border border-leaf-200 bg-white p-1'>
-        <button
-          type='button'
-          onClick={() => handleLessonTypeChange('video')}
-          className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            lessonType === 'video'
-              ? 'bg-leaf-600 text-white'
-              : 'text-brand hover:bg-leaf-50'
-          }`}
-        >
-          Video Lesson
-        </button>
-        <button
-          type='button'
-          onClick={() => handleLessonTypeChange('quiz')}
-          className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            lessonType === 'quiz'
-              ? 'bg-leaf-600 text-white'
-              : 'text-brand hover:bg-leaf-50'
-          }`}
-        >
-          Quiz
-        </button>
-      </div>
-
       <div className='grid gap-4 md:grid-cols-2'>
         <input
           name='title'
@@ -297,18 +248,16 @@ export function LessonForm({
         />
       </div>
 
-      {lessonType === 'video' ? (
-        <>
-          <input
-            name='videoUrl'
-            type='text'
-            placeholder='Video URL'
-            value={videoUrl}
-            onChange={(event) => setVideoUrl(event.target.value)}
-            className={inputClass}
-          />
+      <input
+        name='videoUrl'
+        type='text'
+        placeholder='Video URL'
+        value={videoUrl}
+        onChange={(event) => setVideoUrl(event.target.value)}
+        className={inputClass}
+      />
 
-          <div className='rounded-xl border border-leaf-200 bg-white p-4'>
+      <div className='rounded-xl border border-leaf-200 bg-white p-4'>
             <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end'>
               <label className='block'>
                 <span className='mb-2 block text-sm font-medium text-brand'>
@@ -366,9 +315,9 @@ export function LessonForm({
                 </div>
               </div>
             )}
-          </div>
+        </div>
 
-          <div className='grid gap-4 md:grid-cols-3'>
+        <div className='grid gap-4 md:grid-cols-3'>
             <input
               name='durationMinutes'
               type='number'
@@ -394,27 +343,7 @@ export function LessonForm({
               />
               Free preview
             </label>
-          </div>
-        </>
-      ) : (
-        <div className='rounded-xl border border-leaf-200 bg-white p-4'>
-          <label className='block'>
-            <span className='mb-2 block text-sm font-medium text-brand'>
-              ClassMarker Quiz ID
-            </span>
-            <input
-              type='text'
-              value={quizId}
-              onChange={(event) => setQuizId(event.target.value)}
-              placeholder='e.g. 7a66a49e272400f3'
-              className={inputClass}
-            />
-          </label>
-          <p className='mt-2 text-xs text-leaf-500'>
-            Find this in your ClassMarker embed script: <code className='rounded bg-leaf-100 px-1 py-0.5'>quiz=YOUR_QUIZ_ID</code>
-          </p>
         </div>
-      )}
 
       <textarea
         name='description'

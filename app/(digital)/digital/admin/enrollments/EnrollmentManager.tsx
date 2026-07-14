@@ -129,7 +129,7 @@ export function EnrollmentManager({ embedded }: { embedded?: boolean }) {
                 type='email'
                 value={formEmail}
                 onChange={e => setFormEmail(e.target.value)}
-                className='rounded-lg border border-leaf-200 p-3 text-sm'
+                className='rounded-lg border border-leaf-200 p-3 text-sm text-leaf-800'
                 required
                 placeholder='user@example.com'
               />
@@ -139,7 +139,7 @@ export function EnrollmentManager({ embedded }: { embedded?: boolean }) {
               <select
                 value={formCourse}
                 onChange={e => setFormCourse(e.target.value)}
-                className='rounded-lg border border-leaf-200 p-3 text-sm'
+                className='rounded-lg border border-leaf-200 p-3 text-sm text-leaf-800'
                 required
               >
                 <option value=''>Select course...</option>
@@ -154,7 +154,7 @@ export function EnrollmentManager({ embedded }: { embedded?: boolean }) {
                 type='datetime-local'
                 value={formExpiry}
                 onChange={e => setFormExpiry(e.target.value)}
-                className='rounded-lg border border-leaf-200 p-3 text-sm'
+                className='rounded-lg border border-leaf-200 p-3 text-sm text-leaf-800'
               />
             </div>
             <div className='flex items-end gap-2'>

@@ -56,6 +56,12 @@ export default async function EditTrainingCoursePage({ params }: PageProps) {
                 Curriculum
               </Link>
               <Link
+                href={`/digital/admin/training/courses/${course.id}/quiz`}
+                className='btn btn-ghost'
+              >
+                Quiz
+              </Link>
+              <Link
                 href={`/digital/training/${course.slug}`}
                 className='btn btn-primary'
               >

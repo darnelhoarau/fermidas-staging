@@ -126,6 +126,12 @@ export default async function TrainingCoursesPage() {
                           >
                             Enrollments
                           </Link>
+                          <Link
+                            href={`/digital/admin/training/courses/${course.id}/quiz`}
+                            className='rounded-lg border border-leaf-200 px-3 py-2 font-medium text-brand hover:bg-leaf-50'
+                          >
+                            Quiz
+                          </Link>
                         </div>
                       </td>
                     </tr>
