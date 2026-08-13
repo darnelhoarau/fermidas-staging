@@ -65,14 +65,14 @@ export default async function CourseLandingPage({ params }: PageProps) {
 
   if (!course) notFound();
 
-  const [modules, access, progress] = await Promise.all([
+  const [modules, access, progress, enrollmentCount] = await Promise.all([
     db.findModulesForCourse(course.id),
     canAccessCourse(session?.user ?? null, course.id),
     session?.user
       ? db.findCourseProgress(session.user.id, course.id)
       : Promise.resolve(null),
+    db.countCourseEnrollments(course.id),
   ]);
-  const enrollmentCount = await db.countCourseEnrollments(course.id);
 
   const whatYouLearn = Array.isArray(course.what_you_learn)
     ? course.what_you_learn
@@ -355,6 +355,7 @@ export default async function CourseLandingPage({ params }: PageProps) {
                     src={trailerUrl}
                     controls
                     muted
+                    preload='metadata'
                     className='h-full w-full bg-brand object-cover'
                   />
                 ) : access && course.thumbnail_url ? (

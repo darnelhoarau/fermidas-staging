@@ -86,6 +86,7 @@ export function CoursePlayer({
             src={videoSrc}
             controls
             controlsList='nodownload'
+            preload='metadata'
             className='aspect-video w-full bg-brand'
             onTimeUpdate={handleTimeUpdate}
           />

@@ -29,17 +29,12 @@ export default async function AccountPage() {
   // Check if payment system is enabled
   const paymentEnabled = isPaymentEnabled();
 
-  // Get user's subscriptions (only if payment enabled)
-  const subscriptions = paymentEnabled
-    ? await db.findUserSubscriptions(session.user.id)
-    : [];
-
-  // Get one-off purchases (only if payment enabled)
-  const purchases = paymentEnabled
-    ? await db.findUserPurchases(session.user.id)
-    : [];
-
-  const enrollments = await db.findUserEnrollments(session.user.id);
+  // Parallelize all DB reads instead of a sequential waterfall
+  const [subscriptions, purchases, enrollments] = await Promise.all([
+    paymentEnabled ? db.findUserSubscriptions(session.user.id) : [],
+    paymentEnabled ? db.findUserPurchases(session.user.id) : [],
+    db.findUserEnrollments(session.user.id),
+  ]);
 
   const expiredCourseSlugs = new Set(
     enrollments
@@ -141,6 +136,8 @@ export default async function AccountPage() {
                               <img
                                 src={`/api/training/courses/${enrollment.course_id}/cover`}
                                 alt=''
+                                loading='lazy'
+                                decoding='async'
                                 className='h-full w-full object-cover'
                               />
                             )}

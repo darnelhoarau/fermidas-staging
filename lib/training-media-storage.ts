@@ -108,7 +108,12 @@ function parseByteRange(rangeHeader: string | null, size: number) {
 function secureMediaHeaders(contentType: string) {
   const headers = new Headers();
   headers.set('Content-Type', contentType);
-  headers.set('Cache-Control', 'private, no-store, max-age=0');
+  // Private browser cache only (access-controlled media): 1h fresh, revalidate
+  // in background up to 24h. No CDN caching so access checks still apply.
+  headers.set(
+    'Cache-Control',
+    'private, max-age=3600, stale-while-revalidate=86400',
+  );
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Content-Disposition', 'inline');
   headers.set('Accept-Ranges', 'bytes');
