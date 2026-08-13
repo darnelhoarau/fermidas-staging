@@ -41,6 +41,15 @@ export default async function AccountPage() {
 
   const enrollments = await db.findUserEnrollments(session.user.id);
 
+  const expiredCourseSlugs = new Set(
+    enrollments
+      .filter((e) => {
+        if (!e.access_expires_at) return false;
+        return new Date(e.access_expires_at) <= new Date();
+      })
+      .map((e) => e.slug),
+  );
+
   return (
     <section className='bg-gradient-to-br from-mint to-white pt-12 pb-24 md:pb-28'>
       <div className='container'>
@@ -168,12 +177,21 @@ export default async function AccountPage() {
                             enrollment.total_lessons || 0
                           } lessons complete`}
                         />
-                        <Link
-                          href={`/digital/training/${enrollment.slug}/learn`}
-                          className='btn btn-primary mt-5 w-full px-4 py-2 text-sm'
-                        >
-                          Continue
-                        </Link>
+                        {isExpired ? (
+                          <Link
+                            href={`/digital/checkout?course=${enrollment.slug}`}
+                            className='btn btn-primary mt-5 w-full px-4 py-2 text-sm'
+                          >
+                            Renew Access
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`/digital/training/${enrollment.slug}/learn`}
+                            className='btn btn-primary mt-5 w-full px-4 py-2 text-sm'
+                          >
+                            Continue
+                          </Link>
+                        )}
                       </div>
                     );
                   })}
@@ -262,6 +280,9 @@ export default async function AccountPage() {
                   <div className='space-y-3'>
                     {purchases.map((purchase) => {
                       const isCoursePurchase = !!purchase.course_id;
+                      const purchaseExpired = isCoursePurchase
+                        ? expiredCourseSlugs.has(purchase.course_slug)
+                        : false;
                       const reportDateStr = purchase.report_date
                         ? new Date(purchase.report_date)
                             .toISOString()
@@ -304,12 +325,23 @@ export default async function AccountPage() {
                             </div>
                             {purchase.status === 'PAID' &&
                               isCoursePurchase &&
-                              purchase.course_slug && (
+                              purchase.course_slug &&
+                              !purchaseExpired && (
                                 <Link
                                   href={`/digital/training/${purchase.course_slug}/learn`}
                                   className='btn btn-primary shrink-0 px-4 py-2 text-sm'
                                 >
                                   Continue
+                                </Link>
+                              )}
+                            {purchase.status === 'PAID' &&
+                              isCoursePurchase &&
+                              purchaseExpired && (
+                                <Link
+                                  href={`/digital/checkout?course=${purchase.course_slug}`}
+                                  className='btn btn-primary shrink-0 px-4 py-2 text-sm'
+                                >
+                                  Renew Access
                                 </Link>
                               )}
                             {purchase.status === 'PAID' &&
