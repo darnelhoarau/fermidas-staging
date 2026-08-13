@@ -35,6 +35,10 @@ export function EnrollmentManager({ embedded }: { embedded?: boolean }) {
   const [formCourse, setFormCourse] = useState('');
   const [formExpiry, setFormExpiry] = useState('');
 
+  // Expiry editing
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editExpiry, setEditExpiry] = useState('');
+
   useEffect(() => {
     fetchEnrollments();
     fetch('/api/admin/courses').then(r => r.json()).then(d => setCourses(d.courses || [])).catch(() => {});
@@ -90,6 +94,37 @@ export function EnrollmentManager({ embedded }: { embedded?: boolean }) {
   }
 
   const tabs = ['all', 'active', 'expired', 'unlimited'];
+
+  function toLocalInputValue(iso: string): string {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function startEdit(enrollment: Enrollment) {
+    setEditingId(enrollment.id);
+    setEditExpiry(
+      enrollment.access_expires_at
+        ? toLocalInputValue(enrollment.access_expires_at)
+        : '',
+    );
+  }
+
+  async function handleSaveExpiry() {
+    if (!editingId) return;
+    try {
+      const res = await fetch(`/api/admin/enrollments/${editingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_expires_at: editExpiry || null }),
+      });
+      if (!res.ok) throw new Error('Failed to update expiry');
+      setEditingId(null);
+      fetchEnrollments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update expiry');
+    }
+  }
 
   return (
     <div className={embedded ? '' : 'space-y-6'}>
@@ -196,7 +231,42 @@ export function EnrollmentManager({ embedded }: { embedded?: boolean }) {
                       </span>
                     </td>
                     <td className='p-4 text-sm text-leaf-700'>
-                      {e.access_expires_at ? new Date(e.access_expires_at).toLocaleDateString('en-US') : 'Unlimited'}
+                      {editingId === e.id ? (
+                        <div className='flex flex-wrap items-center gap-2'>
+                          <input
+                            type='datetime-local'
+                            value={editExpiry}
+                            onChange={e2 => setEditExpiry(e2.target.value)}
+                            className='rounded-lg border border-leaf-200 px-2 py-1 text-sm text-leaf-800'
+                          />
+                          <button
+                            onClick={handleSaveExpiry}
+                            className='text-xs font-medium text-success underline hover:text-leaf-900'
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className='text-xs text-leaf-500 underline hover:text-leaf-900'
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className='flex items-center gap-2'>
+                          <span>
+                            {e.access_expires_at
+                              ? new Date(e.access_expires_at).toLocaleDateString('en-US')
+                              : 'Unlimited'}
+                          </span>
+                          <button
+                            onClick={() => startEdit(e)}
+                            className='text-xs text-leaf-500 underline hover:text-leaf-900'
+                          >
+                            Set
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className='p-4 text-sm text-leaf-600'>
                       {new Date(e.enrolled_at).toLocaleDateString('en-US')}

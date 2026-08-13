@@ -52,13 +52,13 @@ export async function DELETE(
         'DELETE FROM lesson_progress WHERE user_id = $1 AND course_id = $2',
         [enrollment.user_id, enrollment.course_id],
       );
+      await pool.query(
+        'DELETE FROM one_off_purchases WHERE user_id = $1 AND course_id = $2',
+        [enrollment.user_id, enrollment.course_id],
+      );
     }
 
     await pool.query('DELETE FROM course_enrollments WHERE id = $1', [id]);
-
-    if (enrollment.purchase_id) {
-      await pool.query('DELETE FROM one_off_purchases WHERE id = $1', [enrollment.purchase_id]);
-    }
 
     await pool.query(
       'INSERT INTO audit_logs (id, actor_user_id, action, meta_json) VALUES ($1, $2, $3, $4)',
