@@ -2,6 +2,8 @@
 
 A production-grade marketing website for Fermidas Consultancy, built with Next.js 15.5.2, TypeScript, and TailwindCSS.
 
+> Maintained by the Fermidas team. Deployments are triggered automatically on push to `main`.
+
 ## Features
 
 - **Modern Design**: Clean, professional design with Fermidas brand colors
