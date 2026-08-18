@@ -58,6 +58,11 @@ export function SystemAdminClient({ users }: { users: User[] }) {
 
   const [notifyEmail, setNotifyEmail] = useState('');
   const [savingNotify, setSavingNotify] = useState(false);
+  const [testingNotify, setTestingNotify] = useState(false);
+  const [notifyTestResult, setNotifyTestResult] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
 
   const [showEnrollments, setShowEnrollments] = useState(false);
   const [moderating, setModerating] = useState<string | null>(null);
@@ -94,6 +99,35 @@ export function SystemAdminClient({ users }: { users: User[] }) {
       })
       .catch(() => {});
   }, []);
+
+  async function handleTestNotify() {
+    if (!notifyEmail.trim()) {
+      setNotifyTestResult({ ok: false, message: 'Enter an email address first' });
+      return;
+    }
+    setTestingNotify(true);
+    setNotifyTestResult(null);
+    try {
+      const res = await fetch('/api/admin/email-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: notifyEmail.trim() }),
+      });
+      const data = await res.json();
+      setNotifyTestResult(
+        res.ok
+          ? { ok: true, message: 'Test email sent!' }
+          : { ok: false, message: data.error || 'Email send failed' },
+      );
+    } catch (err) {
+      setNotifyTestResult({
+        ok: false,
+        message: err instanceof Error ? err.message : 'Email send failed',
+      });
+    } finally {
+      setTestingNotify(false);
+    }
+  }
 
   async function handleSaveNotify() {
     setSavingNotify(true);
@@ -406,6 +440,13 @@ export function SystemAdminClient({ users }: { users: User[] }) {
             />
           </div>
           <button
+            onClick={handleTestNotify}
+            disabled={testingNotify}
+            className='btn btn-ghost h-fit px-6'
+          >
+            {testingNotify ? 'Sending...' : 'Send test email'}
+          </button>
+          <button
             onClick={handleSaveNotify}
             disabled={savingNotify}
             className='btn btn-primary h-fit px-6'
@@ -413,6 +454,11 @@ export function SystemAdminClient({ users }: { users: User[] }) {
             {savingNotify ? 'Saving...' : 'Save'}
           </button>
         </div>
+        {notifyTestResult && (
+          <p className={`mt-4 text-xs ${notifyTestResult.ok ? 'text-success' : 'text-error'}`}>
+            {notifyTestResult.message}
+          </p>
+        )}
       </div>
 
       <div className='card overflow-hidden p-0'>
