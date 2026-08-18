@@ -56,6 +56,9 @@ export function SystemAdminClient({ users }: { users: User[] }) {
   const [customUrl, setCustomUrl] = useState('');
   const [savingRedirect, setSavingRedirect] = useState(false);
 
+  const [notifyEmail, setNotifyEmail] = useState('');
+  const [savingNotify, setSavingNotify] = useState(false);
+
   const [showEnrollments, setShowEnrollments] = useState(false);
   const [moderating, setModerating] = useState<string | null>(null);
 
@@ -87,9 +90,27 @@ export function SystemAdminClient({ users }: { users: User[] }) {
           setRedirectOption('__custom__');
           setCustomUrl(val);
         }
+        setNotifyEmail(d.settings?.registration_notify_email || '');
       })
       .catch(() => {});
   }, []);
+
+  async function handleSaveNotify() {
+    setSavingNotify(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'registration_notify_email', value: notifyEmail.trim() }),
+      });
+      if (!res.ok) throw new Error('Save failed');
+      alert('Saved! Admins will be notified of new registrations.');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSavingNotify(false);
+    }
+  }
 
   async function handleRoleChange(userId: string, newRole: string) {
     try {
@@ -366,6 +387,32 @@ export function SystemAdminClient({ users }: { users: User[] }) {
             Currently: <code className='rounded bg-leaf-100 px-1.5 py-0.5 text-xs text-leaf-700'>{redirectUrl}</code>
           </p>
         )}
+      </div>
+
+      <div className='card p-6'>
+        <h2 className='mb-1 text-lg font-bold text-brand'>Registration Notifications</h2>
+        <p className='mb-5 text-sm text-leaf-600'>
+          Email address(es) notified when a new signup awaits approval. Separate multiple addresses with commas.
+        </p>
+        <div className='grid gap-4 md:grid-cols-[1fr_auto] md:items-end'>
+          <div>
+            <label className='mb-1.5 block text-sm font-semibold text-leaf-700'>Notify</label>
+            <input
+              type='text'
+              value={notifyEmail}
+              onChange={e => setNotifyEmail(e.target.value)}
+              placeholder='admin@fermidas.com, manager@fermidas.com'
+              className={inputClass}
+            />
+          </div>
+          <button
+            onClick={handleSaveNotify}
+            disabled={savingNotify}
+            className='btn btn-primary h-fit px-6'
+          >
+            {savingNotify ? 'Saving...' : 'Save'}
+          </button>
+        </div>
       </div>
 
       <div className='card overflow-hidden p-0'>

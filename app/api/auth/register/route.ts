@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as db from '@/lib/db';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
+import { sendRegistrationPendingNotification } from '@/lib/email/registration';
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -35,6 +36,22 @@ export async function POST(request: NextRequest) {
       role: 'MEMBER',
       registrationStatus: 'pending',
     });
+
+    // Notify the configured admin email(s) — fire-and-forget, never blocks signup
+    try {
+      const notifySetting = await db.getSetting('registration_notify_email');
+      if (notifySetting?.value_json) {
+        const notifyTo = JSON.parse(notifySetting.value_json);
+        if (typeof notifyTo === 'string' && notifyTo.trim()) {
+          await sendRegistrationPendingNotification(notifyTo, {
+            name,
+            email,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Registration notification error:', error);
+    }
 
     return NextResponse.json({
       message: 'Account created — awaiting admin approval',

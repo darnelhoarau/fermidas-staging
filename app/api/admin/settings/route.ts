@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import * as db from '@/lib/db';
 
-const ALLOWED_KEYS = ['payment_success_url'];
+const ALLOWED_KEYS = ['payment_success_url', 'registration_notify_email'];
 
 export async function GET() {
   const session = await auth();
