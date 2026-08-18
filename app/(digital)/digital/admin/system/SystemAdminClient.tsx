@@ -47,6 +47,9 @@ export function SystemAdminClient({ users }: { users: User[] }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState<string | null>(null);
   const [editingRole, setEditingRole] = useState<string | null>(null);
+  const [editingStatus, setEditingStatus] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState<string | null>(null);
   const [orphaned, setOrphaned] = useState<OrphanedPurchase[]>([]);
   const [loadingOrphaned, setLoadingOrphaned] = useState(true);
   const [repairing, setRepairing] = useState<string | null>(null);
@@ -160,6 +163,60 @@ export function SystemAdminClient({ users }: { users: User[] }) {
       router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Update failed');
+    }
+  }
+
+  async function handleStatusChange(userId: string, newStatus: string) {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registration_status: newStatus }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Update failed');
+      setEditingStatus(null);
+      router.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Update failed');
+    }
+  }
+
+  function toggleSelect(userId: string) {
+    setSelected(prev =>
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId],
+    );
+  }
+
+  function toggleSelectAll() {
+    setSelected(prev => (prev.length === users.length ? [] : users.map(u => u.id)));
+  }
+
+  async function handleBulk(action: 'delete' | 'ban' | 'unban') {
+    const confirmMsg =
+      action === 'delete'
+        ? `Permanently delete ${selected.length} user(s) and ALL their data? This cannot be undone.`
+        : action === 'ban'
+          ? `Ban ${selected.length} user(s)? They will lose course access.`
+          : `Unban ${selected.length} user(s)?`;
+    if (!confirm(confirmMsg)) return;
+    setBulkBusy(action);
+    try {
+      const res = await fetch('/api/admin/users/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, userIds: selected }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Action failed');
+      if (data.skipped?.length) {
+        alert(`${data.affected} processed. ${data.skipped.length} skipped (includes your own account).`);
+      }
+      setSelected([]);
+      router.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Action failed');
+    } finally {
+      setBulkBusy(null);
     }
   }
 
@@ -482,10 +539,54 @@ export function SystemAdminClient({ users }: { users: User[] }) {
       </div>
 
       <div className='card overflow-hidden p-0'>
+        {selected.length > 0 && (
+          <div className='flex flex-wrap items-center gap-3 border-b border-leaf-100 bg-leaf-50/50 px-5 py-3'>
+            <span className='text-sm font-semibold text-leaf-700'>
+              {selected.length} selected
+            </span>
+            <button
+              onClick={() => handleBulk('ban')}
+              disabled={!!bulkBusy}
+              className='rounded-lg border border-warn/30 px-3 py-1.5 text-xs font-medium text-warn hover:bg-warn/5 disabled:opacity-50'
+            >
+              {bulkBusy === 'ban' ? '...' : 'Ban'}
+            </button>
+            <button
+              onClick={() => handleBulk('unban')}
+              disabled={!!bulkBusy}
+              className='rounded-lg border border-success/30 px-3 py-1.5 text-xs font-medium text-success hover:bg-success/5 disabled:opacity-50'
+            >
+              {bulkBusy === 'unban' ? '...' : 'Unban'}
+            </button>
+            <button
+              onClick={() => handleBulk('delete')}
+              disabled={!!bulkBusy}
+              className='rounded-lg border border-error/30 px-3 py-1.5 text-xs font-medium text-error hover:bg-error/5 disabled:opacity-50'
+            >
+              {bulkBusy === 'delete' ? '...' : 'Delete'}
+            </button>
+            <button
+              onClick={() => setSelected([])}
+              disabled={!!bulkBusy}
+              className='ml-auto text-xs font-medium text-leaf-500 hover:text-leaf-700'
+            >
+              Clear
+            </button>
+          </div>
+        )}
         <div className='overflow-x-auto'>
           <table className='w-full text-left text-sm'>
             <thead>
               <tr className='bg-leaf-50 text-leaf-700'>
+                <th className='px-4 py-4'>
+                  <input
+                    type='checkbox'
+                    checked={users.length > 0 && selected.length === users.length}
+                    onChange={toggleSelectAll}
+                    className='h-4 w-4 accent-leaf-600'
+                    aria-label='Select all users'
+                  />
+                </th>
                 <th className='px-5 py-4 font-semibold'>Email</th>
                 <th className='px-5 py-4 font-semibold'>Name</th>
                 <th className='px-5 py-4 font-semibold'>Role</th>
@@ -499,6 +600,15 @@ export function SystemAdminClient({ users }: { users: User[] }) {
             <tbody className='divide-y divide-leaf-100'>
               {users.map((u) => (
                 <tr key={u.id} className='hover:bg-leaf-50/30'>
+                  <td className='px-4 py-4'>
+                    <input
+                      type='checkbox'
+                      checked={selected.includes(u.id)}
+                      onChange={() => toggleSelect(u.id)}
+                      className='h-4 w-4 accent-leaf-600'
+                      aria-label={`Select ${u.email}`}
+                    />
+                  </td>
                   <td className='px-5 py-4 font-medium text-brand'>{u.email}</td>
                   <td className='px-5 py-4 text-leaf-700'>{u.name || '—'}</td>
                   <td className='px-5 py-4'>
@@ -530,6 +640,18 @@ export function SystemAdminClient({ users }: { users: User[] }) {
                       <span className='rounded-full bg-red-100 px-3 py-0.5 text-xs font-semibold text-red-700'>
                         Banned
                       </span>
+                    ) : editingStatus === u.id ? (
+                      <select
+                        defaultValue={u.registration_status || 'approved'}
+                        onChange={e => handleStatusChange(u.id, e.target.value)}
+                        onBlur={() => setEditingStatus(null)}
+                        autoFocus
+                        className='rounded-lg border border-leaf-300 bg-white px-3 py-1.5 text-sm text-leaf-800'
+                      >
+                        <option value='pending' className='text-leaf-800'>Pending</option>
+                        <option value='approved' className='text-leaf-800'>Approved</option>
+                        <option value='declined' className='text-leaf-800'>Declined</option>
+                      </select>
                     ) : (
                       (() => {
                         const status = u.registration_status || 'approved';
@@ -546,9 +668,15 @@ export function SystemAdminClient({ users }: { users: User[] }) {
                               ? 'Declined'
                               : 'Approved';
                         return (
-                          <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${badge}`}>
-                            {label}
-                          </span>
+                          <button
+                            onClick={() => setEditingStatus(u.id)}
+                            className='group flex items-center gap-1.5'
+                          >
+                            <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${badge}`}>
+                              {label}
+                            </span>
+                            <span className='text-xs text-leaf-400 opacity-0 transition-opacity group-hover:opacity-100'>(edit)</span>
+                          </button>
                         );
                       })()
                     )}
