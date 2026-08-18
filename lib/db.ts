@@ -118,11 +118,12 @@ export async function createUser(data: {
   name?: string;
   password?: string;
   role?: 'ADMIN' | 'MEMBER';
+  registrationStatus?: 'pending' | 'approved' | 'declined';
 }) {
   const id = generateId('user');
   const query = `
-    INSERT INTO users (id, email, name, password, role)
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO users (id, email, name, password, role, registration_status)
+    VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING *
   `;
 
@@ -133,6 +134,7 @@ export async function createUser(data: {
       data.name || null,
       data.password || null,
       data.role || 'MEMBER',
+      data.registrationStatus || 'approved',
     ]);
     return result.rows[0];
   } catch (error) {
@@ -2752,7 +2754,7 @@ export async function findCourseEnrollments(courseId?: string) {
 
 export async function listUsers() {
   const query = `
-    SELECT u.id, u.email, u.name, u.role, u.created_at,
+    SELECT u.id, u.email, u.name, u.role, u.registration_status, u.created_at,
       (SELECT COUNT(*) FROM course_enrollments ce WHERE ce.user_id = u.id)::integer as enrollment_count,
       (SELECT COUNT(*) FROM one_off_purchases op WHERE op.user_id = u.id)::integer as purchase_count
     FROM users u
@@ -2769,7 +2771,11 @@ export async function listUsers() {
 
 export async function updateUser(
   userId: string,
-  data: { name?: string; role?: 'ADMIN' | 'MEMBER' },
+  data: {
+    name?: string;
+    role?: 'ADMIN' | 'MEMBER';
+    registration_status?: 'pending' | 'approved' | 'declined';
+  },
 ) {
   const sets: string[] = [];
   const params: unknown[] = [];
@@ -2782,6 +2788,10 @@ export async function updateUser(
   if (data.role !== undefined) {
     sets.push(`role = $${idx++}`);
     params.push(data.role);
+  }
+  if (data.registration_status !== undefined) {
+    sets.push(`registration_status = $${idx++}`);
+    params.push(data.registration_status);
   }
 
   if (sets.length === 0) return findUserById(userId);

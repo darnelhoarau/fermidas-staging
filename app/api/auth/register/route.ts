@@ -27,16 +27,18 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Create user (pending approval — admin must approve before sign-in)
     const user = await db.createUser({
       email,
       password: hashedPassword,
       name,
       role: 'MEMBER',
+      registrationStatus: 'pending',
     });
 
     return NextResponse.json({
-      message: 'Account created successfully',
+      message: 'Account created — awaiting admin approval',
+      pending: true,
       userId: user.id,
     });
   } catch (error) {

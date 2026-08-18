@@ -76,6 +76,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return null;
           }
 
+          // Registration moderation: pending/declined users cannot sign in
+          if (user.registration_status === 'pending') {
+            console.log('Account pending approval');
+            return null;
+          }
+          if (user.registration_status === 'declined') {
+            console.log('Account declined');
+            return null;
+          }
+
           return {
             id: user.id,
             email: user.email,

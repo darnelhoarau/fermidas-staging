@@ -10,10 +10,20 @@ export async function PATCH(
     const { id } = await params;
     const session = await requireAdmin();
     const body = await request.json();
-    const { role } = body;
+    const { role, registration_status } = body;
 
     if (role && !['ADMIN', 'MEMBER'].includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+    }
+
+    if (
+      registration_status &&
+      !['pending', 'approved', 'declined'].includes(registration_status)
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid registration status' },
+        { status: 400 },
+      );
     }
 
     const user = await db.updateUser(id, body);

@@ -19,6 +19,10 @@ const LESSON_MIGRATION_COLUMNS: [string, string][] = [
   ['quiz_config', "JSONB DEFAULT '{}'::jsonb"],
 ];
 
+const USER_MIGRATION_COLUMNS: [string, string][] = [
+  ['registration_status', "VARCHAR(20) NOT NULL DEFAULT 'approved'"],
+];
+
 const FEATURE_DEFAULTS: [string, boolean][] = [
   ['setup', true],
   ['migrate', true],
@@ -51,6 +55,12 @@ async function runMigrations(): Promise<string[]> {
   for (const [col, type] of LESSON_MIGRATION_COLUMNS) {
     if (await ensureColumn('course_lessons', col, type)) {
       operations.push(`Added course_lessons.${col}`);
+    }
+  }
+
+  for (const [col, type] of USER_MIGRATION_COLUMNS) {
+    if (await ensureColumn('users', col, type)) {
+      operations.push(`Added users.${col}`);
     }
   }
 

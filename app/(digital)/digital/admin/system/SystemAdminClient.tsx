@@ -9,6 +9,7 @@ interface User {
   email: string;
   name?: string;
   role: string;
+  registration_status: string;
   created_at: string;
   enrollment_count: number;
   purchase_count: number;
@@ -56,6 +57,7 @@ export function SystemAdminClient({ users }: { users: User[] }) {
   const [savingRedirect, setSavingRedirect] = useState(false);
 
   const [showEnrollments, setShowEnrollments] = useState(false);
+  const [moderating, setModerating] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/admin/purchases')
@@ -118,6 +120,23 @@ export function SystemAdminClient({ users }: { users: User[] }) {
     }
   }
 
+  async function handleModerate(userId: string, status: 'approved' | 'declined') {
+    setModerating(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registration_status: status }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Update failed');
+      router.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Update failed');
+    } finally {
+      setModerating(null);
+    }
+  }
+
   async function handleRepair(purchaseId: string) {
     setRepairing(purchaseId);
     try {
@@ -169,8 +188,67 @@ export function SystemAdminClient({ users }: { users: User[] }) {
     }
   }
 
+  const pendingUsers = users.filter((u) => u.registration_status === 'pending');
+
   return (
     <div className='space-y-8'>
+      {pendingUsers.length > 0 && (
+        <div className='card border-l-4 border-l-amber-500 p-6'>
+          <div className='mb-4 flex items-center gap-3'>
+            <div className='flex h-10 w-10 items-center justify-center rounded-full bg-amber-100'>
+              <span className='text-lg font-bold text-amber-700'>{pendingUsers.length}</span>
+            </div>
+            <div>
+              <h2 className='text-lg font-bold text-brand'>Pending Registrations</h2>
+              <p className='text-sm text-leaf-600'>
+                New signups awaiting approval — they cannot sign in until accepted
+              </p>
+            </div>
+          </div>
+          <div className='overflow-x-auto rounded-xl border border-leaf-100'>
+            <table className='w-full text-left text-sm'>
+              <thead>
+                <tr className='bg-leaf-50 text-leaf-700'>
+                  <th className='px-4 py-3 font-semibold'>Email</th>
+                  <th className='px-4 py-3 font-semibold'>Name</th>
+                  <th className='px-4 py-3 font-semibold'>Registered</th>
+                  <th className='px-4 py-3 font-semibold' />
+                </tr>
+              </thead>
+              <tbody className='divide-y divide-leaf-100'>
+                {pendingUsers.map((u) => (
+                  <tr key={u.id} className='hover:bg-leaf-50/50'>
+                    <td className='px-4 py-3 font-medium text-brand'>{u.email}</td>
+                    <td className='px-4 py-3 text-leaf-700'>{u.name || '—'}</td>
+                    <td className='px-4 py-3 text-leaf-600'>
+                      {new Date(u.created_at).toLocaleDateString('en-US')}
+                    </td>
+                    <td className='px-4 py-3'>
+                      <div className='flex gap-2'>
+                        <button
+                          onClick={() => handleModerate(u.id, 'approved')}
+                          disabled={moderating === u.id}
+                          className='rounded-lg bg-success px-3 py-1.5 text-xs font-medium text-white hover:bg-leaf-700 disabled:opacity-50'
+                        >
+                          {moderating === u.id ? '...' : 'Accept'}
+                        </button>
+                        <button
+                          onClick={() => handleModerate(u.id, 'declined')}
+                          disabled={moderating === u.id}
+                          className='rounded-lg border border-error/30 px-3 py-1.5 text-xs font-medium text-error hover:bg-error/5 disabled:opacity-50'
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {orphaned.length > 0 && (
         <div className='card border-l-4 border-l-amber-500 p-6'>
           <div className='mb-4 flex items-center gap-3'>
@@ -298,6 +376,7 @@ export function SystemAdminClient({ users }: { users: User[] }) {
                 <th className='px-5 py-4 font-semibold'>Email</th>
                 <th className='px-5 py-4 font-semibold'>Name</th>
                 <th className='px-5 py-4 font-semibold'>Role</th>
+                <th className='px-5 py-4 font-semibold'>Status</th>
                 <th className='px-5 py-4 font-semibold'>Enrollments</th>
                 <th className='px-5 py-4 font-semibold'>Purchases</th>
                 <th className='px-5 py-4 font-semibold'>Created</th>
@@ -332,6 +411,28 @@ export function SystemAdminClient({ users }: { users: User[] }) {
                         <span className='text-xs text-leaf-400 opacity-0 transition-opacity group-hover:opacity-100'>(edit)</span>
                       </button>
                     )}
+                  </td>
+                  <td className='px-5 py-4'>
+                    {(() => {
+                      const status = u.registration_status || 'approved';
+                      const badge =
+                        status === 'pending'
+                          ? 'bg-amber-100 text-amber-700'
+                          : status === 'declined'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-success/10 text-success';
+                      const label =
+                        status === 'pending'
+                          ? 'Pending'
+                          : status === 'declined'
+                            ? 'Declined'
+                            : 'Approved';
+                      return (
+                        <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${badge}`}>
+                          {label}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className='px-5 py-4 text-leaf-700'>{u.enrollment_count}</td>
                   <td className='px-5 py-4 text-leaf-700'>{u.purchase_count}</td>

@@ -21,6 +21,7 @@ function SignInForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [registered, setRegistered] = useState(false);
 
   const handleCredentialsAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +29,7 @@ function SignInForm() {
     setError('');
 
     if (mode === 'signup') {
-      // Register new user
+      // Register new user — account is created as pending until an admin approves it
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -41,6 +42,10 @@ function SignInForm() {
         setLoading(false);
         return;
       }
+
+      setRegistered(true);
+      setLoading(false);
+      return;
     }
 
     // Sign in
@@ -64,6 +69,55 @@ function SignInForm() {
       }
     }
   };
+
+  if (registered) {
+    return (
+      <section className='section no-top bg-gradient-to-br from-mint to-white'>
+        <Container>
+          <div className='mx-auto flex min-h-[80vh] max-w-md items-center justify-center py-12'>
+            <div className='card w-full p-8 text-center'>
+              <div className='mb-6 text-center'>
+                <div className='mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-leaf-100'>
+                  <svg
+                    className='h-8 w-8 text-leaf-600'
+                    fill='none'
+                    viewBox='0 0 24 24'
+                    stroke='currentColor'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M5 13l4 4L19 7'
+                    />
+                  </svg>
+                </div>
+                <h1 className='font-display text-2xl font-bold text-brand'>
+                  Account Created
+                </h1>
+              </div>
+              <p className='mb-6 text-leaf-700'>
+                Your account for{' '}
+                <strong className='text-brand'>{email}</strong> is awaiting
+                approval. An administrator will review your registration before
+                you can sign in.
+              </p>
+              <button
+                onClick={() => {
+                  setRegistered(false);
+                  setMode('signin');
+                  setPassword('');
+                }}
+                className='text-sm text-leaf-700 hover:text-brand'
+              >
+                ← Back to sign in
+              </button>
+            </div>
+          </div>
+        </Container>
+      </section>
+    );
+  }
 
   if (magicLinkSent) {
     return (
