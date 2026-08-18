@@ -108,6 +108,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             role: user.role,
           };
         } catch (error) {
+          // Custom sign-in errors (pending/declined/banned) must propagate so
+          // Auth.js can surface their code to the sign-in form
+          if (error instanceof CredentialsSignin) throw error;
           console.error('Authorization error:', error);
           return null;
         }
