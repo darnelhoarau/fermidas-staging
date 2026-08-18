@@ -171,8 +171,6 @@ export function SystemAdminClient({ users }: { users: User[] }) {
 
   return (
     <div className='space-y-8'>
-      <h1 className='font-display text-2xl font-bold text-brand'>System Admin</h1>
-
       {orphaned.length > 0 && (
         <div className='card border-l-4 border-l-amber-500 p-6'>
           <div className='mb-4 flex items-center gap-3'>
