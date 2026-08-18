@@ -21,6 +21,7 @@ const LESSON_MIGRATION_COLUMNS: [string, string][] = [
 
 const USER_MIGRATION_COLUMNS: [string, string][] = [
   ['registration_status', "VARCHAR(20) NOT NULL DEFAULT 'approved'"],
+  ['banned_at', 'TIMESTAMPTZ'],
 ];
 
 const FEATURE_DEFAULTS: [string, boolean][] = [

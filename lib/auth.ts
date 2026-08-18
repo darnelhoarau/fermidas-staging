@@ -1,9 +1,21 @@
-import NextAuth, { type DefaultSession } from 'next-auth';
+import NextAuth, { CredentialsSignin, type DefaultSession } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 // import Resend from 'next-auth/providers/resend'; // Temporarily disabled - requires adapter
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import * as db from './db';
+
+class AccountPendingError extends CredentialsSignin {
+  code = 'account_pending';
+}
+
+class AccountDeclinedError extends CredentialsSignin {
+  code = 'account_declined';
+}
+
+class AccountBannedError extends CredentialsSignin {
+  code = 'account_banned';
+}
 
 // Extend the built-in session types
 declare module 'next-auth' {
@@ -76,14 +88,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return null;
           }
 
+          // Banned users cannot sign in (account kept, access revoked)
+          if (user.banned_at) {
+            throw new AccountBannedError();
+          }
+
           // Registration moderation: pending/declined users cannot sign in
           if (user.registration_status === 'pending') {
-            console.log('Account pending approval');
-            return null;
+            throw new AccountPendingError();
           }
           if (user.registration_status === 'declined') {
-            console.log('Account declined');
-            return null;
+            throw new AccountDeclinedError();
           }
 
           return {

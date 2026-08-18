@@ -12,6 +12,12 @@ export async function canAccessCourse(
   user: TrainingAccessUser,
   courseId: string,
 ): Promise<boolean> {
+  // Banned users lose all access (covers API routes like media/progress/quiz)
+  if (user?.id) {
+    const dbUser = await db.findUserById(user.id);
+    if (dbUser?.banned_at) return false;
+  }
+
   if (isPaymentExempt(user)) return true;
   if (!isPaymentEnabled()) return true;
   if (!user?.id) return false;

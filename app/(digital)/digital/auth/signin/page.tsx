@@ -13,6 +13,7 @@ function SignInForm() {
   const router = useRouter();
   const callbackUrl = searchParams.get('callbackUrl') || '/digital/account';
   const plan = searchParams.get('plan'); // 'monthly' or 'oneoff'
+  const banned = searchParams.get('error') === 'Banned';
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -56,7 +57,22 @@ function SignInForm() {
     });
 
     if (result?.error) {
-      setError('Invalid email or password');
+      const code = result.code;
+      if (code === 'account_pending') {
+        setError(
+          'Your account is awaiting admin approval. You will be able to sign in once it is approved.',
+        );
+      } else if (code === 'account_declined') {
+        setError(
+          'Your registration was declined. Contact us if you believe this is a mistake.',
+        );
+      } else if (code === 'account_banned') {
+        setError(
+          'Your account has been banned. Contact us if you believe this is a mistake.',
+        );
+      } else {
+        setError('Invalid email or password');
+      }
       setLoading(false);
     } else if (result?.ok) {
       // Redirect based on plan selection using Next.js router
@@ -178,6 +194,13 @@ function SignInForm() {
                 {!plan && 'Access your digital products'}
               </p>
             </div>
+
+            {banned && (
+              <div className='mb-6 rounded-xl bg-error/10 p-4 text-sm text-error'>
+                Your account has been banned. Contact us if you believe this is
+                a mistake.
+              </div>
+            )}
 
             {error && (
               <div className='mb-6 rounded-xl bg-error/10 p-4 text-sm text-error'>

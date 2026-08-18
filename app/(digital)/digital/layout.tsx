@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
+import * as db from '@/lib/db';
 
 export default async function DigitalLayout({
   children,
@@ -28,6 +29,17 @@ export default async function DigitalLayout({
       ? encodeURIComponent(pathname)
       : encodeURIComponent('/digital');
     redirect(`/digital/auth/signin?callbackUrl=${callbackUrl}`);
+  }
+
+  // Banned users are locked out of all digital pages (account kept, access revoked)
+  const user = await db.findUserById(session.user.id);
+  if (user?.banned_at) {
+    const callbackUrl = pathname
+      ? encodeURIComponent(pathname)
+      : encodeURIComponent('/digital');
+    redirect(
+      `/digital/auth/signin?error=Banned&callbackUrl=${callbackUrl}`,
+    );
   }
 
   return <>{children}</>;

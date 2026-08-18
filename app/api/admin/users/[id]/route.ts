@@ -10,7 +10,7 @@ export async function PATCH(
     const { id } = await params;
     const session = await requireAdmin();
     const body = await request.json();
-    const { role, registration_status } = body;
+    const { role, registration_status, banned } = body;
 
     if (role && !['ADMIN', 'MEMBER'].includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
@@ -24,6 +24,21 @@ export async function PATCH(
         { error: 'Invalid registration status' },
         { status: 400 },
       );
+    }
+
+    if (banned !== undefined && typeof banned !== 'boolean') {
+      return NextResponse.json({ error: 'Invalid ban value' }, { status: 400 });
+    }
+
+    if (banned && id === session.user.id) {
+      return NextResponse.json(
+        { error: 'You cannot ban your own account' },
+        { status: 400 },
+      );
+    }
+
+    if (banned !== undefined) {
+      await db.setUserBanStatus(id, banned);
     }
 
     const user = await db.updateUser(id, body);

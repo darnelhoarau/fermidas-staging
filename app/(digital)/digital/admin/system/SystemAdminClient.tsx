@@ -10,6 +10,7 @@ interface User {
   name?: string;
   role: string;
   registration_status: string;
+  banned_at: string | null;
   created_at: string;
   enrollment_count: number;
   purchase_count: number;
@@ -66,6 +67,7 @@ export function SystemAdminClient({ users }: { users: User[] }) {
 
   const [showEnrollments, setShowEnrollments] = useState(false);
   const [moderating, setModerating] = useState<string | null>(null);
+  const [banning, setBanning] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/admin/purchases')
@@ -189,6 +191,24 @@ export function SystemAdminClient({ users }: { users: User[] }) {
       alert(err instanceof Error ? err.message : 'Update failed');
     } finally {
       setModerating(null);
+    }
+  }
+
+  async function handleBanToggle(userId: string, currentlyBanned: boolean) {
+    if (!currentlyBanned && !confirm('Ban this user? They will be locked out of all access until unbanned.')) return;
+    setBanning(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ banned: !currentlyBanned }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Update failed');
+      router.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Update failed');
+    } finally {
+      setBanning(null);
     }
   }
 
@@ -506,26 +526,32 @@ export function SystemAdminClient({ users }: { users: User[] }) {
                     )}
                   </td>
                   <td className='px-5 py-4'>
-                    {(() => {
-                      const status = u.registration_status || 'approved';
-                      const badge =
-                        status === 'pending'
-                          ? 'bg-amber-100 text-amber-700'
-                          : status === 'declined'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-success/10 text-success';
-                      const label =
-                        status === 'pending'
-                          ? 'Pending'
-                          : status === 'declined'
-                            ? 'Declined'
-                            : 'Approved';
-                      return (
-                        <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${badge}`}>
-                          {label}
-                        </span>
-                      );
-                    })()}
+                    {u.banned_at ? (
+                      <span className='rounded-full bg-red-100 px-3 py-0.5 text-xs font-semibold text-red-700'>
+                        Banned
+                      </span>
+                    ) : (
+                      (() => {
+                        const status = u.registration_status || 'approved';
+                        const badge =
+                          status === 'pending'
+                            ? 'bg-amber-100 text-amber-700'
+                            : status === 'declined'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-success/10 text-success';
+                        const label =
+                          status === 'pending'
+                            ? 'Pending'
+                            : status === 'declined'
+                              ? 'Declined'
+                              : 'Approved';
+                        return (
+                          <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${badge}`}>
+                            {label}
+                          </span>
+                        );
+                      })()
+                    )}
                   </td>
                   <td className='px-5 py-4 text-leaf-700'>{u.enrollment_count}</td>
                   <td className='px-5 py-4 text-leaf-700'>{u.purchase_count}</td>
@@ -533,13 +559,26 @@ export function SystemAdminClient({ users }: { users: User[] }) {
                     {new Date(u.created_at).toLocaleDateString('en-US')}
                   </td>
                   <td className='px-5 py-4'>
-                    <button
-                      onClick={() => handleDelete(u.id, u.email)}
-                      disabled={deleting === u.id}
-                      className='rounded-lg border border-error/30 px-3 py-1.5 text-xs font-medium text-error hover:bg-error/5 disabled:opacity-50'
-                    >
-                      {deleting === u.id ? '...' : 'Delete'}
-                    </button>
+                    <div className='flex gap-2'>
+                      <button
+                        onClick={() => handleBanToggle(u.id, !!u.banned_at)}
+                        disabled={banning === u.id}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                          u.banned_at
+                            ? 'border-success/30 text-success hover:bg-success/5'
+                            : 'border-warn/30 text-warn hover:bg-warn/5'
+                        }`}
+                      >
+                        {banning === u.id ? '...' : u.banned_at ? 'Unban' : 'Ban'}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(u.id, u.email)}
+                        disabled={deleting === u.id}
+                        className='rounded-lg border border-error/30 px-3 py-1.5 text-xs font-medium text-error hover:bg-error/5 disabled:opacity-50'
+                      >
+                        {deleting === u.id ? '...' : 'Delete'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

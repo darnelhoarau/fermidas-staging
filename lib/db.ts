@@ -2754,7 +2754,7 @@ export async function findCourseEnrollments(courseId?: string) {
 
 export async function listUsers() {
   const query = `
-    SELECT u.id, u.email, u.name, u.role, u.registration_status, u.created_at,
+    SELECT u.id, u.email, u.name, u.role, u.registration_status, u.banned_at, u.created_at,
       (SELECT COUNT(*) FROM course_enrollments ce WHERE ce.user_id = u.id)::integer as enrollment_count,
       (SELECT COUNT(*) FROM one_off_purchases op WHERE op.user_id = u.id)::integer as purchase_count
     FROM users u
@@ -2765,6 +2765,21 @@ export async function listUsers() {
     return result.rows;
   } catch (error) {
     console.error('Error listing users:', error);
+    throw error;
+  }
+}
+
+export async function setUserBanStatus(userId: string, banned: boolean) {
+  const query = `
+    UPDATE users SET banned_at = CASE WHEN $2 THEN NOW() ELSE NULL END
+    WHERE id = $1
+    RETURNING *
+  `;
+  try {
+    const result = await pool.query(query, [userId, banned]);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error setting user ban status:', error);
     throw error;
   }
 }
